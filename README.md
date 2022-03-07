@@ -18,3 +18,4 @@ This implementation of a message chat will utilize MongoDB
 
 ## Useful Information
 * [Basic Message Chat Implementation](https://github.com/kevinthedang/message-based-chat)
+* [Django Tutorial](https://docs.djangoproject.com/en/4.0/intro/tutorial01/)
