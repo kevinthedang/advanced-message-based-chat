@@ -86,27 +86,99 @@ class ChatRoom(deque):
 
     #Overriding the queue type put and get operations to add type hints for the ChatMessage type
     def put(self, message: ChatMessage = None) -> None:
-        pass
+        """ Overriding the queue type put and get operations to add type hints for the ChatMessage type
+            Also, since we can insert messages at either end, we're choosing (arbitrarily) to put on left, read from right
+        """
+        logging.info(f'Calling Queue put method. message is {message}')
+        if message is not None:
+            super().appendleft(message)
+            self.__persist()
 
     # overriding parent and setting block to false so we don't wait for messages if there are none
     def get(self) -> ChatMessage:
-        pass
+        """ overriding parent and setting block to false so we don't wait for messages if there are none
+            Return the last message in the deque (indexing at -1 gets you the last element)
+        """
+        try:
+            new_message = super()[-1]
+        except:
+            logging.debug("No message in chatqueue.get!!")
+            return None
+        else:
+            return new_message
 
     def find_message(self, message_text: str) -> ChatMessage:
-        pass
+        """ Go through the deque to find a message object that matches the text. Will return the first such message
+            TODO: this should ultimately be done by ID 
+        """
+        for chat_message in deque:
+            if chat_message.message == message_text:
+                return chat_message
 
     def restore(self) -> bool:
-        pass
+        """ We're restoring data from Mongo. 
+            First get the metadata record, but looking for a name key with find_one. If it exists, then we have the doc. If not, bail
+                Fill in the metadata (name, create, modify times - we'll do more later)
+            Second, we're getting the actual messages. Now we look for the key "message". Note that we're using find so we'll get all that 
+                match (every document with a key called 'message')
+                For each dictionary we get back (the documents), create a message properties instance and a message instance and
+                    put them in the deque by calling the put method
+            TODO: We are missing some properties we need to implement like sequence_num and room_name
+        """
+        queue_metadata = self.__mongo_collection.find_one( { 'name': { '$exists': 'true'}})
+        if queue_metadata is None:
+            return False
+        self.__name = queue_metadata["name"]
+        self.__create_time = queue_metadata["create_time"]
+        self.__modify_time = queue_metadata["modify_time"]
+        for mess_dict in self.__mongo_collection.find({ 'message': { '$exists': 'true'}}):
+            new_mess_props = MessageProperties(
+                mess_dict['mess_props']['mess_type'],
+                mess_dict['mess_props']['to_user'],
+                mess_dict['mess_props']['from_user'],
+                mess_dict['mess_props']['sent_time'],
+                mess_dict['mess_props']['rec_time']
+            )
+            new_message = ChatMessage(mess_dict['message'], new_mess_props, None)
+            new_message.dirty = False
+            self.put(new_message)
+        return True
 
     def persist(self):
-        pass
+        """ First save a document that describes the user list (metadata: name of list, create and modify times) if it isn't already there
+            Second, for each message in the list create and save a document for that user
+                NOTE: We're using our custom to_dict so we give Mongo what it wants
+        """
+        if self.__mongo_collection.find_one({ 'name': { '$exists': 'false'}}) is None:
+            self.__mongo_collection.insert_one({"name": self.name, "create_time": self.__create_time, "modify_time": self.__modify_time})
+        for message in list(self):
+            if message.dirty is True:
+                serialized = {'message': message.message,
+                            'mess_props': message.mess_props.to_dict(),
+                            'rmq_props': message.rmq_props.__dict__ if message.rmq_props is not None else dict(),
+                            }
+                serialized2 = message.to_dict()
+                self.__mongo_collection.insert_one(serialized2)
+                message.dirty = False
 
     def get_messages(self, user_alias: str, num_messages:int=GET_ALL_MESSAGES, return_objects: bool = True):
         # return message texts, full message objects, and total # of messages
         pass
 
     def send_message(self, message: str, from_alias: str, mess_props: MessageProperties) -> bool:
-        pass
+        """ Send a message through rabbit, but also create the message instance and add it to our internal queue by calling the internal put method
+        """
+        try:
+            self.rmq_channel.basic_publish(self.rmq_exchange_name, 
+                                        routing_key=self.rmq_queue_name, 
+                                        properties=pika.BasicProperties(headers=mess_props.__dict__),
+                                        body=message, mandatory=True)
+            logging.info(f'Publish to messaging server succeeded. Message: {message}')
+            self.put(ChatMessage(message=message, mess_props=mess_props))
+            return(True)
+        except pika.exceptions.UnroutableError:
+            logging.debug(f'Message was returned undeliverable. Message: {message} and target queue: {self.rmq_queue}')
+            return(False) 
 
 class RoomList():
     """ Note, I chose to use an explicit private list instead of inheriting the list class
