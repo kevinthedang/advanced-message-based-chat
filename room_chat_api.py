@@ -24,7 +24,7 @@ logging.basicConfig(filename='chat.log', level=logging.INFO)
 async def index():
     """ Default page
     """
-    pass
+    return {"message": {"from": "kevin", "to": "you"}}
 
 @app.get("/page/send", status_code=200)
 async def send_form(request: Request):
@@ -66,6 +66,7 @@ async def get_users():
 @app.post("/alias", status_code=201)
 async def register_client(client_alias: str, group_alias: bool = False):
     """ API for adding a user alias
+        NOTE: Refer to the users.py on what might be called here
     """
     pass
 

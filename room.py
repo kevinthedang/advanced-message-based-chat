@@ -3,7 +3,6 @@ import json
 import pika.exceptions
 import logging
 from users import *
-from constants import *
 from datetime import date, datetime
 from pymongo import MongoClient, ReturnDocument
 from collections import deque
