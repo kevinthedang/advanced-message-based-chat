@@ -54,12 +54,14 @@ async def form_messages(request: Request, room_name: str = Form(...)):
 @app.get("/messages/", status_code=200)
 async def get_messages(request: Request, alias: str, room_name: str, messages_to_get: int = GET_ALL_MESSAGES):
     """ API for getting messages
+        NOTE: Refer to get_messages() in the room.py file
     """
     pass
 
 @app.get("/users/", status_code=200)
 async def get_users():
     """ API for getting users
+        NOTE: Might want to consider using get_all_users() from the users.py
     """
     pass
 
@@ -73,12 +75,15 @@ async def register_client(client_alias: str, group_alias: bool = False):
 @app.post("/room")
 async def create_room(room_name: str, owner_alias: str, room_type: int = ROOM_TYPE_PRIVATE):
     """ API for creating a room
+        NOTE: Refer to the room.py -> RoomList -> Create() or add() to know what the API should do
+            add() maybe for adding the room to the MongoDB
     """
     pass
 
 @app.post("/message/", status_code=201)
 async def send_message(room_name: str, message: str, from_alias: str, to_alias: str):
     """ API for sending a message
+        NOTE: Refer to send_message() in room.py, may help
     """
     pass
 
