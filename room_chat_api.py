@@ -66,7 +66,7 @@ async def get_users():
     pass
 
 @app.post("/alias", status_code=201)
-async def register_client(client_alias: str, group_alias: bool = False):
+async def register_client(client_alias: str):
     """ API for adding a user alias
         NOTE: Refer to the users.py on what might be called here
     """

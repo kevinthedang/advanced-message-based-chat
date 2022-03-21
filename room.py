@@ -85,7 +85,6 @@ class ChatRoom(deque):
         self.__rmq_connection = pika.BlockingConnection(self.__rmq_connection_params)
         self.__rmq_channel = self.__rmq_connection.channel()
         self.__rmq_queue = self.__rmq_channel.queue_declare(queue=DEFAULT_QUEUE_NAME)
-        self.__rmq_queue_name = DEFAULT_QUEUE_NAME
         self.__rmq_exchange = self.__rmq_channel.exchange_declare(exchange = RMQ_DEFAULT_PUBLIC_EXCHANGE, exchange_type = 'fanout') 
         self.__rmq_channel.queue_bind(exchange = RMQ_DEFAULT_PUBLIC_EXCHANGE, queue = DEFAULT_QUEUE_NAME)
 
@@ -194,22 +193,21 @@ class ChatRoom(deque):
             if message.dirty is True:
                 serialized2 = message.to_dict()
                 self.__mongo_collection.insert_one(serialized2)
-                message.dirty = False
 
-    def get_messages(self, user_alias: str, num_messages:int=GET_ALL_MESSAGES, return_objects: bool = True):
+    def get_messages(self, user_alias: str, num_messages: int = GET_ALL_MESSAGES, return_objects: bool = True):
         # return message texts, full message objects, and total # of messages
         message_obj_list = []
         message_body_list = []
         logging.info("Starting retreive_messages")
         if self.__rmq_channel.is_closed:
             logging.warning(f'Inside __retrieve messages, the channel is CLOSED!!')
-        logging.info(f'Inside retreive_messages, queue is {self.__rmq_queue_name}, exchange: {self.__rmq_exchange_name}, cache: {self}, channel: {self.__rmq_channel}')
+        logging.info(f'Inside retreive_messages, queue is {DEFAULT_QUEUE_NAME}, exchange: {RMQ_DEFAULT_PUBLIC_EXCHANGE}, cache: {self}, channel: {self.__rmq_channel}')
         num_mess_received = 0
-        for m_f, props, body in self.__rmq_channel.consume(self.__rmq_queue_name, auto_ack=True, inactivity_timeout=2):
+        for m_f, props, body in self.__rmq_channel.consume(DEFAULT_QUEUE_NAME, auto_ack=True, inactivity_timeout=2):
             logging.info(f"inside retreive messages, processing a messsage. body = {body}")
             if body != None:
                 num_mess_received += 1
-                message_body_list.append(body.decode('utf-8'))
+                message_body_list.append(body.decode(BYTE_to_STRING))
                 new_mess_props = MessageProperties(
                     self.__room_name, # this is now received, the original will be sent
                     props.headers['_MessageProperties__to_user'],
@@ -219,7 +217,7 @@ class ChatRoom(deque):
                     props.headers['_MessageProperties__sent_time'],
                     props.headers['_MessageProperties__rec_time']
                 )
-                new_message = ChatMessage(body.decode('utf-8'), new_mess_props)
+                new_message = ChatMessage(body.decode(BYTE_to_STRING), new_mess_props)
                 message_obj_list.append(new_message)
                 logging.info(f'Inside retrieve, here is the new chatmessage: {new_message}')
                 logging.info(f'Inside retrieve, chatmessage body: {body}\n mess_props: {new_mess_props}\n')
