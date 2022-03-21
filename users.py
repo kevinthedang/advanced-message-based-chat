@@ -46,6 +46,8 @@ class UserList():
 
     @property
     def user_list(self):
+        ''' This property is just to the the list of users
+        '''
         return self.__user_list
     
     def register(self, new_alias: str) -> ChatUser:
@@ -72,7 +74,6 @@ class UserList():
     def append(self, new_user: ChatUser) -> None:
         ''' This method will add the user to the to the list of users
             NOTE: May want to make sure that the new_user is valid
-            TODO: This will just append a chat user to the list of users
         '''
         self.__user_list.append(new_user)
         self.__persist()

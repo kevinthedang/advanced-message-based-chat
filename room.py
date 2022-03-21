@@ -47,12 +47,16 @@ class ChatMessage():
         self.__dirty = True
         self.__mess_id = mess_id
 
+    @property
+    def dirty(self):
+        return self.__dirty
+
     def to_dict(self):
-        mess_props_dict = self.mess_props.to_dict()
-        return {'message': self.message, 'mess_props': mess_props_dict}
+        mess_props_dict = self.__mess_props.to_dict()
+        return {'message': self.__message, 'mess_props': mess_props_dict}
 
     def __str__(self):
-        return f'Chat Message: {self.message} - message props: {self.mess_props}'
+        return f'Chat Message: {self.__message} - message props: {self.__mess_props}'
 
 class ChatRoom(deque):
     """ Docstring
@@ -63,9 +67,11 @@ class ChatRoom(deque):
     def __init__(self, room_name: str, member_list: list = None, owner_alias: str = "", room_type: int = ROOM_TYPE_PRIVATE, create_new: bool = False) -> None:
         super(ChatRoom, self).__init__()
         self.__room_name = room_name
-        self.__member_list = UserList()
+        self.__member_list = member_list
         self.__owner_alias = owner_alias
         self.__room_type = room_type
+        self.__create_time = datetime.now()
+        self.__modify_time = datetime.now()
         # Set up mongo - client, db, collection, sequence_collection
         self.__mongo_client = MongoClient(host='34.94.157.136', port=27017, username='class', password='CPSC313', authSource='detest', authMechanism='SCRAM-SHA-256')
         self.__mongo_db = self.__mongo_client.detest
@@ -74,6 +80,14 @@ class ChatRoom(deque):
         if self.__mongo_collection is None:
             self.__mongo_collection = self.__mongo_db.create_collection(self.__room_name)
         # Restore from mongo if possible, if not (or we're creating new) then setup properties
+        self.__rmq_creds = pika.PlainCredentials(RMQ_LOGIN, RMQ_PASS)
+        self.__rmq_connection_params = pika.ConnectionParameters(RMQ_HOST, RMQ_PORT, RMQ_VIRTUALHOST, self.__rmq_creds)
+        self.__rmq_connection = pika.BlockingConnection(self.__rmq_connection_params)
+        self.__rmq_channel = self.__rmq_connection.channel()
+        self.__rmq_queue = self.__rmq_channel.queue_declare(queue=DEFAULT_QUEUE_NAME)
+        self.__rmq_queue_name = DEFAULT_QUEUE_NAME
+        self.__rmq_exchange = self.__rmq_channel.exchange_declare(exchange = RMQ_DEFAULT_PUBLIC_EXCHANGE, exchange_type = 'fanout') 
+        self.__rmq_channel.queue_bind(exchange = RMQ_DEFAULT_PUBLIC_EXCHANGE, queue = DEFAULT_QUEUE_NAME)
 
     @property
     def room_name(self):
@@ -90,8 +104,8 @@ class ChatRoom(deque):
     def to_dict(self):
         return {
                 'room_name': self.__alias,
-                'user_list': self.__create_time,
-                'owner_alias': self.__modify_time,
+                'user_list': self.__member_list,
+                'owner_alias': self.__owner_alias,
                 'room_type': self.__room_type,
                 'create_time': self.__create_time,
                 'modify_time': datetime.now()
@@ -117,7 +131,7 @@ class ChatRoom(deque):
         logging.info(f'Calling Queue put method. message is {message}')
         if message is not None:
             super().appendleft(message)
-            self.__persist()
+            self.persist()
 
     # overriding parent and setting block to false so we don't wait for messages if there are none
     def get(self) -> ChatMessage:
@@ -175,28 +189,60 @@ class ChatRoom(deque):
                 NOTE: We're using our custom to_dict so we give Mongo what it wants
         """
         if self.__mongo_collection.find_one({ 'name': { '$exists': 'false'}}) is None:
-            self.__mongo_collection.insert_one({"name": self.name, "create_time": self.__create_time, "modify_time": self.__modify_time})
+            self.__mongo_collection.insert_one({"name": self.__room_name, "create_time": self.__create_time, "modify_time": self.__modify_time})
         for message in list(self):
             if message.dirty is True:
-                serialized = {'message': message.message,
-                            'mess_props': message.mess_props.to_dict()
-                            }
                 serialized2 = message.to_dict()
                 self.__mongo_collection.insert_one(serialized2)
                 message.dirty = False
 
     def get_messages(self, user_alias: str, num_messages:int=GET_ALL_MESSAGES, return_objects: bool = True):
         # return message texts, full message objects, and total # of messages
-        pass
+        message_obj_list = []
+        message_body_list = []
+        logging.info("Starting retreive_messages")
+        if self.__rmq_channel.is_closed:
+            logging.warning(f'Inside __retrieve messages, the channel is CLOSED!!')
+        logging.info(f'Inside retreive_messages, queue is {self.__rmq_queue_name}, exchange: {self.__rmq_exchange_name}, cache: {self}, channel: {self.__rmq_channel}')
+        num_mess_received = 0
+        for m_f, props, body in self.__rmq_channel.consume(self.__rmq_queue_name, auto_ack=True, inactivity_timeout=2):
+            logging.info(f"inside retreive messages, processing a messsage. body = {body}")
+            if body != None:
+                num_mess_received += 1
+                message_body_list.append(body.decode('utf-8'))
+                new_mess_props = MessageProperties(
+                    self.__room_name, # this is now received, the original will be sent
+                    props.headers['_MessageProperties__to_user'],
+                    props.headers['_MessageProperties__from_user'],
+                    MESSAGE_TYPE_RECEIVED,
+                    props.headers['_MessageProperties__sequence_num'],
+                    props.headers['_MessageProperties__sent_time'],
+                    props.headers['_MessageProperties__rec_time']
+                )
+                new_message = ChatMessage(body.decode('utf-8'), new_mess_props)
+                message_obj_list.append(new_message)
+                logging.info(f'Inside retrieve, here is the new chatmessage: {new_message}')
+                logging.info(f'Inside retrieve, chatmessage body: {body}\n mess_props: {new_mess_props}\n')
+                self.put(new_message)
+                if num_mess_received >= num_messages and num_messages is not GET_ALL_MESSAGES:
+                    break
+            else:
+                break
+        requeued_messages = self.__rmq_channel.cancel()
+        logging.info(f'Called cancel after retreive messages, result of that call is {requeued_messages}')
+        if return_objects:
+            return message_obj_list, message_body_list, num_mess_received
+        else:
+            return message_body_list, num_mess_received
 
     def send_message(self, message: str, mess_props: MessageProperties) -> bool:
         """ Send a message through rabbit, but also create the message instance and add it to our internal queue by calling the internal put method
         """
         try:
-            self.rmq_channel.basic_publish(self.rmq_exchange_name, 
-                                        routing_key=self.rmq_queue_name, 
-                                        properties=pika.BasicProperties(headers=mess_props.__dict__),
-                                        body=message, mandatory=True)
+            self.__rmq_channel.basic_publish(RMQ_DEFAULT_PUBLIC_EXCHANGE, 
+                                        routing_key = DEFAULT_QUEUE_NAME, 
+                                        properties = pika.BasicProperties(headers=mess_props.__dict__),
+                                        body = message, mandatory = True)
             logging.info(f'Publish to messaging server succeeded. Message: {message}')
             self.put(ChatMessage(message=message, mess_props=mess_props))
             return(True)
