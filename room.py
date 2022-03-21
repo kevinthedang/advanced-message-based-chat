@@ -63,15 +63,40 @@ class ChatRoom(deque):
     def __init__(self, room_name: str, member_list: list = None, owner_alias: str = "", room_type: int = ROOM_TYPE_PRIVATE, create_new: bool = False) -> None:
         super(ChatRoom, self).__init__()
         self.__room_name = room_name
-        self.__user_list = UserList()
+        self.__member_list = UserList()
+        self.__owner_alias = owner_alias
+        self.__room_type = room_type
         # Set up mongo - client, db, collection, sequence_collection
         self.__mongo_client = MongoClient(host='34.94.157.136', port=27017, username='class', password='CPSC313', authSource='detest', authMechanism='SCRAM-SHA-256')
         self.__mongo_db = self.__mongo_client.detest
-        self.__mongo_collection = self.__mongo_db.get_collection(self.name) 
+        self.__mongo_collection = self.__mongo_db.get_collection(self.__room_name) 
         self.__mongo_seq_collection = self.__mongo_db.get_collection("sequence")
         if self.__mongo_collection is None:
-            self.__mongo_collection = self.__mongo_db.create_collection(self.name)
+            self.__mongo_collection = self.__mongo_db.create_collection(self.__room_name)
         # Restore from mongo if possible, if not (or we're creating new) then setup properties
+
+    @property
+    def room_name(self):
+        return self.__room_name
+
+    @property
+    def owner_alias(self):
+        return self.__owner_alias
+
+    @property
+    def list_of_users(self):
+        return self.__member_list.get_all_users()
+
+    def to_dict(self):
+        return {
+                'room_name': self.__alias,
+                'user_list': self.__create_time,
+                'owner_alias': self.__modify_time,
+                'room_type': self.__room_type,
+                'create_time': self.__create_time,
+                'modify_time': datetime.now()
+
+        }
 
     def __get_next_sequence_num(self):
         """ This is the method that you need for managing the sequence. Note that there is a separate collection for just this one document
@@ -154,8 +179,7 @@ class ChatRoom(deque):
         for message in list(self):
             if message.dirty is True:
                 serialized = {'message': message.message,
-                            'mess_props': message.mess_props.to_dict(),
-                            'rmq_props': message.rmq_props.__dict__ if message.rmq_props is not None else dict(),
+                            'mess_props': message.mess_props.to_dict()
                             }
                 serialized2 = message.to_dict()
                 self.__mongo_collection.insert_one(serialized2)
@@ -186,37 +210,88 @@ class RoomList():
     def __init__(self, name: str = DEFAULT_ROOM_LIST_NAME) -> None:
         """ Try to restore from mongo 
         """
-        pass
+        self.__room_list_name = name
+        self.__chat_rooms_list = list()
+        # Set up mongo - client, db, collection, sequence_collection
+        self.__mongo_client = MongoClient(host='34.94.157.136', port=27017, username='class', password='CPSC313', authSource='detest', authMechanism='SCRAM-SHA-256')
+        self.__mongo_db = self.__mongo_client.detest
+        self.__mongo_collection = self.__mongo_db.get_collection(name) 
+        if self.__mongo_collection is None:
+            self.__mongo_collection = self.__mongo_db.create_collection(name)
+        # Restore from mongo if possible, if not (or we're creating new) then setup properties
+        if self.__restore() is not True:
+            self.__room_list_create = datetime.now()
+            self.__room_list_modify = datetime.now()
 
     def create(self, room_name: str, owner_alias: str, member_list: list = None, room_type: int = ROOM_TYPE_PRIVATE) -> ChatRoom:
-        pass
+        ''' This method will create a new chatroom
+            NOTE: There is a param in the init of ChatRoom, look out for the create_new
+        '''
+        return ChatRoom(room_name = room_name, owner_alias = owner_alias, member_list = member_list, room_type = room_type)
 
     def add(self, new_room: ChatRoom):
-        pass
+        ''' This method will append a newly created chat room to the list of chat rooms
+        '''
+        self.__chat_rooms_list.append(new_room)
+        self.__persist()
 
     def find_room_in_metadata(self, room_name: str) -> dict:
-        pass
+        return self.__chat_rooms_list[room_name].to_dict()
 
-    def get_rooms(self):
-        pass
+    def get_rooms(self) -> list:
+        ''' This method will return the list of the chat rooms
+            NOTE: It is possible for there to be no rooms in the chat room list
+        '''
+        return self.__chat_rooms_list
 
     def get(self, room_name: str) -> ChatRoom:
-        pass
-
-    def __find_pos(self, room_name: str) -> int:
-        pass
+        for current_room in self.__chat_rooms_list:
+            if room_name == current_room.room_name:
+                return current_room
     
     def find_by_member(self, member_alias: str) -> list:
-        pass
+        ''' This method will go through the chat rooms list and return a list of 
+            chat rooms based on the member input
+        '''
+        rooms_by_members = list()
+        for current_room in self.__chat_rooms_list:
+            if member_alias in current_room.list_of_users:
+                rooms_by_members.append(current_room)
+        return rooms_by_members
 
     def find_by_owner(self, owner_alias: str) -> list:
-        pass
+        ''' This method will go through the chat rooms list and return a list of 
+            chat rooms based on the member input
+            NOTE: This just needs to focus on the owner_alias portion to sort it out
+        '''
+        rooms_by_owners = list()
+        for current_room in self.__chat_rooms_list:
+            if owner_alias == current_room.owner_alias:
+                rooms_by_owners.append(current_room)
+        return rooms_by_owners
 
-    def remove(self, room_name: str):
-        pass
+    def remove(self, room_name: str) -> None:
+        ''' This method will focus on removing a chat room from the chat room list
+        '''
+        for current_room in self.__chat_rooms_list:
+            if room_name == current_room.__room_name:
+                self.__chat_rooms_list.pop(current_room)
 
     def __persist(self):
-        pass
+        ''' This method will make sure that there is not a document for the data for a
+                list of rooms in the collection yet.
+            NOTE: the room names will persist as metadata in the mongo collection.
+        '''
+        if self.__mongo_collection.find_one({ 'name': self.__room_list_name }) is None:
+            self.__mongo_collection.insert_one({ "name": self.__room_list_name, "create_time": self.__room_list_create, "modify_time": self.__room_list_modify, 'room_names' : self.__chat_rooms_list})
 
     def __restore(self) -> bool:
-        pass
+        ''' This method will restore all the metadata from the mongo collection.
+        '''
+        queue_metadata = self.__mongo_collection.find_one( { 'name': self.__room_list_name })
+        if queue_metadata is None:
+            return False
+        self.__room_list_name = queue_metadata["name"]
+        self.__room_list_create = queue_metadata["create_time"]
+        self.__room_list_modify = datetime.now()
+        self.__chat_rooms_list = queue_metadata['room_names']
