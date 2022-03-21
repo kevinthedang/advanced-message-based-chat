@@ -38,8 +38,8 @@ class RoomTest(TestCase):
         """ Testing the get messages functionality
             NOTE: Should make sure that the sequence of the messages are correct
         """
-        self.assertEqual(self.__public_chat_channel.find_message(DEFAULT_PUBLIC_TEST_MESS), DEFAULT_PUBLIC_TEST_MESS)
-        self.assertEqual(self.__private_chat_channel.find_message(DEFAULT_PRIVATE_TEST_MESS), DEFAULT_PRIVATE_TEST_MESS)
+        self.assertEqual(self.__public_chat_channel.get(), DEFAULT_PUBLIC_TEST_MESS)
+        self.assertEqual(self.__private_chat_channel.get(), DEFAULT_PRIVATE_TEST_MESS)
 
     def test_full(self):
         """ Doing both and make sure that what we sent is in what we get back

@@ -59,8 +59,7 @@ class ChatMessage():
         return f'Chat Message: {self.__message} - message props: {self.__mess_props}'
 
 class ChatRoom(deque):
-    """ Docstring
-        We reuse the constructor for creating new or grabbing an existing instance. If owner_alias is empty and user_alias is not, 
+    """ We reuse the constructor for creating new or grabbing an existing instance. If owner_alias is empty and user_alias is not, 
             this is assuming an existing instance. The opposite (owner_alias set and user_alias empty) means we're creating new
             members is always optional, and room_type is only relevant if we're creating new.
     """
@@ -161,7 +160,7 @@ class ChatRoom(deque):
                 match (every document with a key called 'message')
                 For each dictionary we get back (the documents), create a message properties instance and a message instance and
                     put them in the deque by calling the put method
-            TODO: We are missing some properties we need to implement like sequence_num and room_name
+            TODO: We are missing some properties we need to implement like sequence_num
         """
         queue_metadata = self.__mongo_collection.find_one( { 'name': { '$exists': 'true'}})
         if queue_metadata is None:
@@ -243,6 +242,7 @@ class ChatRoom(deque):
                                         body = message, mandatory = True)
             logging.info(f'Publish to messaging server succeeded. Message: {message}')
             self.put(ChatMessage(message=message, mess_props=mess_props))
+            self.persist()
             return(True)
         except pika.exceptions.UnroutableError:
             logging.debug(f'Message was returned undeliverable. Message: {message} and target queue: {self.rmq_queue}')
@@ -331,6 +331,7 @@ class RoomList():
 
     def __restore(self) -> bool:
         ''' This method will restore all the metadata from the mongo collection.
+            NOTE: There is some hanging str object at the beginning of the list.
         '''
         queue_metadata = self.__mongo_collection.find_one( { 'name': self.__room_list_name })
         if queue_metadata is None:

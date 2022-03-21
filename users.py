@@ -54,15 +54,19 @@ class UserList():
         """ This method will just return a new ChatUser that will need to be added to the UserList
             This only creates the user, it does not add them to the list of users yet.
         """
-        return ChatUser(alias = new_alias)
+        if self.get(new_alias) is not None:
+            return ChatUser(alias = new_alias)
+        else:
+            return None
 
     def get(self, target_alias: str) -> ChatUser:
         ''' This method will return the user from the user_list
             TODO: Learn how to traverse through the list.
         '''
-        for user in self.__user_list:
-            if target_alias == user.__alias:
-                return user
+        for user_index in range(1, len(self.__user_list)):
+            if target_alias == self.__user_list[user_index].alias:
+                return self.__user_list[user_index].alias
+        return None
 
     def get_all_users(self) -> list:
         ''' This method will just return the list of names as a result.
