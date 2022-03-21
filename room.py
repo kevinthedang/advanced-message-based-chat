@@ -189,7 +189,7 @@ class ChatRoom(deque):
         # return message texts, full message objects, and total # of messages
         pass
 
-    def send_message(self, message: str, from_alias: str, mess_props: MessageProperties) -> bool:
+    def send_message(self, message: str, mess_props: MessageProperties) -> bool:
         """ Send a message through rabbit, but also create the message instance and add it to our internal queue by calling the internal put method
         """
         try:

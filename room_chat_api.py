@@ -78,14 +78,15 @@ async def create_room(room_name: str, owner_alias: str, room_type: int = ROOM_TY
         NOTE: Refer to the room.py -> RoomList -> Create() or add() to know what the API should do
             add() maybe for adding the room to the MongoDB
     """
-    pass
+    room_list.add(room_list.create(room_name = room_name, owner_alias = owner_alias, room_type = room_type))
 
 @app.post("/message/", status_code=201)
-async def send_message(room_name: str, message: str, from_alias: str, to_alias: str):
+async def send_message(room_name: str, message: str):
     """ API for sending a message
         NOTE: Refer to send_message() in room.py, may help
     """
-    pass
+    current_room = room_list.get(room_name)
+    current_room.send_message(message = message)
 
 def main():
     logging.basicConfig(filename='chat.log', level=logging.INFO)

@@ -9,7 +9,6 @@ class UserTest(TestCase):
     """ Docstring
     """
     def setUp(self) -> None:
-#        super().__init__(methodName)
         self.__cur_users = UserList('test_users_kevin')
         self.__testing_users_list = list()
 
