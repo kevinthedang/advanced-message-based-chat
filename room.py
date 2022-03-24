@@ -217,7 +217,14 @@ class ChatRoom(deque):
         if return_objects is True:
             message_objects = self.__get_message_objects(num_messages = num_messages)
             if num_messages == GET_ALL_MESSAGES:
-                return [], message_objects[0], message_objects[1]
+                return [current_message.message for current_message in list(self)], message_objects[0], message_objects[1]
+            else:
+                '''This case is from right to left to get messages'''
+        else:
+            if num_messages == GET_ALL_MESSAGES:
+                return [current_message.message for current_message in list(self)], len(self)
+            else:
+                '''This case is from right to left to get messages'''
 
     def __get_message_objects(self, num_messages: int = GET_ALL_MESSAGES):
         ''' This is a helper method to get the actual message objects rather than just the message from the object
