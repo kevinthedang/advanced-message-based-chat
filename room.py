@@ -38,10 +38,34 @@ class MessageProperties():
             'sequence_num': self.__sequence_num,
         } 
 
-    # place properties here
+    # the following properties are to get functions to get message properties
     @property
     def message_type(self):
         return self.__mess_type
+
+    @property
+    def room_name(self):
+        return self.__room_name
+
+    @property
+    def to_user(self):
+        return self.__to_user
+
+    @property
+    def from_user(self):
+        return self.__from_user
+
+    @property
+    def sent_time(self):
+        return self.__sent_time
+
+    @property
+    def rec_time(self):
+        return self.__rec_time
+
+    @property
+    def sequence_number(self):
+        return self.__sequence_num
 
     def __str__(self):
         return str(self.to_dict())
@@ -87,6 +111,7 @@ class ChatRoom(deque):
     """
     def __init__(self, room_name: str, member_list: list = None, owner_alias: str = "", room_type: int = ROOM_TYPE_PRIVATE, create_new: bool = False) -> None:
         super(ChatRoom, self).__init__()
+        self.__room_name = room_name
         self.__user_list = UserList()
         # Set up mongo - client, db, collection, sequence_collection
         self.__mongo_client = MongoClient(host = MONGO_DB_HOST, port = MONGO_DB_PORT, username = MONGO_DB_USER, password = MONGO_DB_PASS, authSource = MONGO_DB_AUTH_SOURCE, authMechanism = MONGO_DB_AUTH_MECHANISM)
@@ -96,13 +121,15 @@ class ChatRoom(deque):
         if self.__mongo_collection is None:
             self.__mongo_collection = self.__mongo_db.create_collection(self.__room_name)
         # Restore from mongo if possible, if not (or we're creating new) then setup ChatRoom properties
-        if self.restore() is not True:
-            self.__room_name = room_name
-            self.__owner_alias = owner_alias
-            if create_new is True:
-                self.__room_type = room_type
+        if create_new is True or self.restore() is False:
+            self.__room_type = room_type
             if member_list is not None:
-                self.__user_list = member_list
+                self.__member_list = member_list
+                if owner_alias not in member_list:
+                    member_list.append(owner_alias)
+            else:
+                self.__member_list = list()
+                self.__member_list.append(owner_alias)
 
     # property to get the name of a room
     @property
@@ -119,13 +146,18 @@ class ChatRoom(deque):
     def owner_alias(self):
         return self.__owner_alias
 
+    # property to get the length of the deque
+    @property
+    def num_messages(self):
+        return len(list(self))
+
     def __get_next_sequence_num(self):
         """ This is the method that you need for managing the sequence. Note that there is a separate collection for just this one document
         """
         sequence_num = self.__mongo_seq_collection.find_one_and_update(
                                                         {'_id': 'userid'},
-                                                        {'$inc': {'seq': 1}},
-                                                        projection={'seq': True, '_id': False},
+                                                        {'$inc': {self.__room_name: 1}},
+                                                        projection={self.__room_name: True, '_id': False},
                                                         upsert=True,
                                                         return_document=ReturnDocument.AFTER)
         return sequence_num
@@ -171,14 +203,28 @@ class ChatRoom(deque):
         logging.debug(f'{message_text} was not found in the deque.')
         return None
             
-
     def get_messages(self, user_alias: str, num_messages: int = GET_ALL_MESSAGES, return_objects: bool = True):
         ''' This method will get num_messages from the deque and get their text, objects and a total count of the messages
             NOTE: Refer to Dans code about message objects and message_texts
             NOTE: total # of messages seems to just be num messages, but if getting all then just return the length of the list
+            NOTE: indecies 0 and 1 is to access the values in the tuple for the objects and the number of objects
+            TODO: get message_objects if the user wants the objects
         '''
-        # return message texts, full message objects, and total # of messages   
-        pass
+        # return message texts, full message objects, and total # of messages
+        if user_alias not in self.__member_list:
+            logging.warning(f'User with alias {user_alias} is not a member of {self.__room_name}.')
+            return [], [], 0
+        if return_objects is True:
+            message_objects = self.__get_message_objects(num_messages = num_messages)
+            if num_messages == GET_ALL_MESSAGES:
+                return [], message_objects[0], message_objects[1]
+
+    def __get_message_objects(self, num_messages: int = GET_ALL_MESSAGES):
+        ''' This is a helper method to get the actual message objects rather than just the message from the object
+            TODO: write instance where num_messages is not GET_ALL_MESSAGES
+        '''
+        if num_messages == GET_ALL_MESSAGES:
+            return list(self), len(self)
 
     def send_message(self, message: str, from_alias: str, mess_props: MessageProperties = None) -> bool:
         ''' This method will send a message to the ChatRoom instance
@@ -199,8 +245,11 @@ class ChatRoom(deque):
             NOTE: a ChatRoom will contain it's own collection, if we are creating a new collection, we don't
                     need to restore
             NOTE: if the collection exists, then we do want to restore.
+            TODO: Get room metadata and check if it is None, then use the metadata to get all messages and put them in the deque
+            TODO: load all messages into the chatroom
         '''
         logging.info('Beginning the restore process.')
+        room_metadata = self.__mongo_collection.find_one({})
         pass
 
     def persist(self):
@@ -211,7 +260,18 @@ class ChatRoom(deque):
             TODO: since _id is autogenerated, this will be the message id for any message, even for the id of a room, upsert is used to update anything
         '''
         logging.info('Beginning the persistence process.')
-        pass
+        if self.__mongo_collection.find_one({ 'room_name': self.__room_name }) is None:
+            self.__room_id = self.__mongo_collection.insert_one() # metadata here
+        else:
+            if self.__dirty == True:
+                self.__mongo_collection.replace_one() # metadata here and upsert = True
+        self.__dirty = False
+        # put messages in the collection now
+        for current_message in list(self):
+            if current_message.dirty == True:
+                if current_message.message_id is None or self.__mongo_collection.find_one({ '_id' : current_message.message_id }) is None:
+                    current_message.message_properties.sequence_number = self.__get_next_sequence_num()
+                    # continue here
 
 class RoomList():
     """ This is the RoomList class instance that will handle a list of ChatRooms and obtaining them.
@@ -242,7 +302,6 @@ class RoomList():
         ''' This method will create a new ChatRoom given that the room_name is not already taken for the collection.
             NOTE: This can just be a checker for the chatroom name existing in the list when restored or if it's in the collection
             NOTE: Maybe check with the collection as it is possible for all names to not be in the list and removed, due to the option for removal
-            NOTE: room_type for an existing room will have create_new = False
             TODO: make sure to add a memberlist
         '''
         logging.info(f'Attempting to create a ChatRoom instance with name {room_name}.')
@@ -262,7 +321,7 @@ class RoomList():
             NOTE: the use of -1 is to tell us that the ChatRoom instance was not found in the room list.
         '''
         chat_room_to_remove = self.__find_pos(room_name)
-        if chat_room_to_remove is not -1:
+        if chat_room_to_remove is not CHAT_ROOM_INDEX_NOT_FOUND:
             self.__room_list.pop(chat_room_to_remove)
             logging.debug(f'ChatRoom {room_name} was removed from the room list.')
         else:
@@ -270,12 +329,14 @@ class RoomList():
 
     def find_room_in_metadata(self, room_name: str) -> dict:
         ''' This method will return a dictionary of information, relating to the metadata...?
+            TODO: connect to MongoDB and attempt to see how the metadata looks
         '''
         pass
 
     def get_rooms(self):
         ''' This method will return the rooms in the room list.
             NOTE: The room list can be empty
+            NOTE: this may just be the room names or not
         '''
         return self.__room_list
 
@@ -297,13 +358,15 @@ class RoomList():
         for chat_room_index in range(len(self.__room_list)):
             if self.__room_list[chat_room_index].room_name is room_name:
                 return chat_room_index
-        return -1
+        return CHAT_ROOM_INDEX_NOT_FOUND
     
     def find_by_member(self, member_alias: str) -> list:
         ''' This method will return a list of ChatRoom instances that has the the current alias within the list of
                 member_aliases in the ChatRoom instance.
             NOTE: it is possible for all rooms to not have a the member_alias within their instance. return a empty list
             NOTE: create a new list and append the ChatRooms to the list.
+            TODO: using the member_alias, find all rooms with a members_list that has this alias
+            TODO: check if this member_alias is valid
         '''
         pass
 
