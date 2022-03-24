@@ -84,6 +84,7 @@ class UserList():
 
     def __restore(self) -> bool:
         """ First get the document for the queue itself, then get all documents that are not the queue metadata
+            NOTE: we should have a list of aliases of the for the members that belong in a certain group chat.
         """
         queue_metadata = self.__mongo_collection.find_one( { 'name': self.__setup_list_name })
         if queue_metadata is None:

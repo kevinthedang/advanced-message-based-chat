@@ -99,9 +99,14 @@ class ChatRoom(deque):
     #Overriding the queue type put and get operations to add type hints for the ChatMessage type
     def put(self, message: ChatMessage = None) -> None:
         ''' This method will put the current message to the left side of the deque
+            NOTE: we want to make sure that the message is not none to put it on the deque
             TODO: put the message on the left using appendLeft() method
         '''
         logging.info(f'Caliing the put() method with current message being {message} appending to the left of the deque.')
+        if message is not None:
+            super().appendleft(message)
+            self.persist()
+        
 
     # overriding parent and setting block to false so we don't wait for messages if there are none
     def get(self) -> ChatMessage:
@@ -128,6 +133,8 @@ class ChatRoom(deque):
         pass
 
     def send_message(self, message: str, from_alias: str, mess_props: MessageProperties) -> bool:
+        ''' This method will send a message to the deque using message properties
+        '''
         pass
 
     def restore(self) -> bool:
