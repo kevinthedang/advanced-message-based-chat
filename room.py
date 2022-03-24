@@ -1,3 +1,4 @@
+from email import message
 import pika
 import json
 import pika.exceptions
@@ -45,9 +46,25 @@ class ChatMessage():
     def __init__(self, message: str, mess_id = None, mess_props: MessageProperties = None) -> None:
         self.__message = message
         self.__mess_props = mess_props
-        self.__rmq_props = None
-        self.__dirty = True
         self.__mess_id = mess_id
+        self.__dirty = True
+
+    # the following 4 properties are set so information about a ChatMessage instance can be obtained
+    @property
+    def message(self):
+        return self.__message
+
+    @property
+    def message_properties(self):
+        return self.__mess_props
+    
+    @property
+    def dirty(self):
+        return self.__dirty
+
+    @property
+    def message_id(self):
+        return self.__mess_id
 
     def to_dict(self):
         mess_props_dict = self.mess_props.to_dict()
@@ -57,23 +74,30 @@ class ChatMessage():
         return f'Chat Message: {self.message} - message props: {self.mess_props}'
 
 class ChatRoom(deque):
-    """ Docstring
-        We reuse the constructor for creating new or grabbing an existing instance. If owner_alias is empty and user_alias is not, 
+    """ We reuse the constructor for creating new or grabbing an existing instance. If owner_alias is empty and user_alias is not, 
             this is assuming an existing instance. The opposite (owner_alias set and user_alias empty) means we're creating new
             members is always optional, and room_type is only relevant if we're creating new.
+            NOTE: variables will be instantiated when restore is true.
     """
     def __init__(self, room_name: str, member_list: list = None, owner_alias: str = "", room_type: int = ROOM_TYPE_PRIVATE, create_new: bool = False) -> None:
         super(ChatRoom, self).__init__()
-        self.__room_name = room_name
-        self.__user_list = UserList()
         # Set up mongo - client, db, collection, sequence_collection
-        self.__mongo_client = MongoClient(host='34.94.157.136', port=27017, username='class', password='CPSC313', authSource='detest', authMechanism='SCRAM-SHA-256')
+        self.__mongo_client = MongoClient(host = MONGO_DB_HOST, port = MONGO_DB_PORT, username = MONGO_DB_USER, password = MONGO_DB_PASS, authSource = MONGO_DB_AUTH_SOURCE, authMechanism = MONGO_DB_AUTH_MECHANISM)
         self.__mongo_db = self.__mongo_client.detest
         self.__mongo_collection = self.__mongo_db.get_collection(self.__room_name) 
         self.__mongo_seq_collection = self.__mongo_db.get_collection("sequence")
         if self.__mongo_collection is None:
             self.__mongo_collection = self.__mongo_db.create_collection(self.__room_name)
-        # Restore from mongo if possible, if not (or we're creating new) then setup properties
+        # Restore from mongo if possible, if not (or we're creating new) then setup ChatRoom properties
+        if self.restore() is not True:
+            self.__room_name = room_name
+            self.__owner_alias = owner_alias
+            if create_new is True:
+                self.__room_type = room_type
+            if member_list is not None:
+                self.__user_list = member_list
+            else:
+                self.__user_list = UserList()
 
     # property to get the name of a room
     @property
@@ -84,6 +108,11 @@ class ChatRoom(deque):
     @property
     def room_user_list(self):
         return self.__user_list
+
+    # property to get the owner_alias of the 
+    @property
+    def owner_alias(self):
+        return self.__owner_alias
 
     def __get_next_sequence_num(self):
         """ This is the method that you need for managing the sequence. Note that there is a separate collection for just this one document
@@ -99,21 +128,29 @@ class ChatRoom(deque):
     #Overriding the queue type put and get operations to add type hints for the ChatMessage type
     def put(self, message: ChatMessage = None) -> None:
         ''' This method will put the current message to the left side of the deque
-            NOTE: we want to make sure that the message is not none to put it on the deque
             TODO: put the message on the left using appendLeft() method
         '''
         logging.info(f'Caliing the put() method with current message being {message} appending to the left of the deque.')
         if message is not None:
             super().appendleft(message)
-            self.persist()
-        
+            logging.info(f'{message} was appended to the left of the queue.')
+            logging.info(f'Beginning persistence of message {message}.')
+            # self.persist()
+
 
     # overriding parent and setting block to false so we don't wait for messages if there are none
     def get(self) -> ChatMessage:
         ''' This method will take a ChatMessage from the right side of the deque.
             NOTE: the method pop() to take a value from the right of the deque
         '''
-        pass
+        try:
+            message_right = super()[-1]
+        except:
+            logging.debug(f'There is no message in the deque for room {self.__room_name}')
+            return None
+        else:
+            logging.debug(f'Message {message} was found on the deque.')
+            return message_right
 
     def find_message(self, message_text: str) -> ChatMessage:
         ''' Traverse through the deque of the Chatroom and find the ChatMessage 
@@ -122,20 +159,34 @@ class ChatRoom(deque):
             NOTE: To traverse through the deque, we can use list(self) as an iterable to find the message
             NOTE: an example would be (for current_message in list(self))
         '''
-        pass
+        for current_message in list(self):
+            if current_message.message == message_text:
+                logging.debug(f'found {message_text} in deque.')
+                return current_message
+        logging.debug(f'{message_text} was not found in the deque.')
+        return None
+            
 
-    def get_messages(self, user_alias: str, num_messages:int=GET_ALL_MESSAGES, return_objects: bool = True):
+    def get_messages(self, user_alias: str, num_messages: int = GET_ALL_MESSAGES, return_objects: bool = True):
         ''' This method will get num_messages from the deque and get their text, objects and a total count of the messages
             NOTE: Refer to Dans code about message objects and message_texts
             NOTE: total # of messages seems to just be num messages, but if getting all then just return the length of the list
         '''
-        # return message texts, full message objects, and total # of messages
+        # return message texts, full message objects, and total # of messages   
         pass
 
-    def send_message(self, message: str, from_alias: str, mess_props: MessageProperties) -> bool:
-        ''' This method will send a message to the deque using message properties
+    def send_message(self, message: str, from_alias: str, mess_props: MessageProperties = None) -> bool:
+        ''' This method will send a message to the ChatRoom instance
+            NOTE: we are assuming that message is not None or empty
+            NOTE: we most likely will need to utilize the put function to put the message on the queue
+            NOTE: we also need to create an instance of ChatMessage to put on the queue
         '''
-        pass
+        if mess_props is not None:
+            new_message = ChatMessage(message = message, mess_props = mess_props)
+            logging.info(f'New ChatMessage created with message {message}')
+            self.put(new_message)
+            return True
+        return False
 
     def restore(self) -> bool:
         ''' This method will restore the metadata and the messages that a certain ChatRoom instance needs
@@ -143,6 +194,7 @@ class ChatRoom(deque):
                     need to restore
             NOTE: if the collection exists, then we do want to restore.
         '''
+        logging.info('Beginning the restore process.')
         pass
 
     def persist(self):
@@ -151,26 +203,44 @@ class ChatRoom(deque):
                 - The messages in the room.
             NOTE: we want to iterate through the deque
         '''
+        logging.info('Beginning the persistence process.')
         pass
 
 class RoomList():
-    """ This is the RoomList class instance that will handle a list of ChatRooms and obtaining them
+    """ This is the RoomList class instance that will handle a list of ChatRooms and obtaining them.
+        NOTE: no need to have properties as this will be the main handler of all other class instances.
         TODO: complete this class by writing its functions.
     """
-    def __init__(self, name: str = DEFAULT_ROOM_LIST_NAME) -> None:
+    def __init__(self, room_list_name: str = DEFAULT_ROOM_LIST_NAME) -> None:
         """ Try to restore from mongo and establish variables for the room list
             TODO: RoomList takes a name, set the name
             TODO: inherit a list, or create an internal variable for a list of rooms
             TODO: restore the mongoDB collection
+            NOTE: restore will handle putting the rooms into the room_list
         """
-        pass
+        self.__room_list_name = room_list_name
+        self.__room_list = list()
+        # Set up mongo - client, db, collection
+        self.__mongo_client = MongoClient(host = MONGO_DB_HOST, port = MONGO_DB_PORT, username = MONGO_DB_USER, password = MONGO_DB_PASS, authSource = MONGO_DB_AUTH_SOURCE, authMechanism = MONGO_DB_AUTH_MECHANISM)
+        self.__mongo_db = self.__mongo_client.detest
+        self.__mongo_collection = self.__mongo_db.get_collection(room_list_name)
+        if self.__mongo_collection is None:
+            self.__mongo_collection = self.__mongo_db.create_collection(room_list_name)
+        # Restore from mongo if possible, if not (or we're creating new) then setup properties
+        if self.__restore() is not True:
+            self.__room_list_create = datetime.now()
+            self.__room_list_modify = datetime.now()
 
     def create(self, room_name: str, owner_alias: str, member_list: list = None, room_type: int = ROOM_TYPE_PRIVATE) -> ChatRoom:
         ''' This method will create a new ChatRoom given that the room_name is not already taken for the collection.
             NOTE: This can just be a checker for the chatroom name existing in the list when restored or if it's in the collection
             NOTE: Maybe check with the collection as it is possible for all names to not be in the list and removed, due to the option for removal
+            NOTE: room_type for an existing room will have create_new = False
         '''
-        pass
+        logging.info(f'Attempting to create a ChatRoom instance with name {room_name}.')
+        if self.__mongo_db.get_collection(room_name) is None:
+            return ChatRoom(room_name = room_name, member_list = member_list, owner_alias = owner_alias, room_type = room_type, create_new = True)
+        return ChatRoom(room_name = room_name, member_list = member_list, owner_alias = owner_alias, room_type = room_type)
 
     def add(self, new_room: ChatRoom):
         ''' This method will add a ChatRoom instance to the list of ChatRooms
@@ -179,31 +249,46 @@ class RoomList():
         pass
 
     def remove(self, room_name: str):
-        ''' This method will remove a ChatRoom instance from the list of ChatRooms
-            NOTE: we want to make sure that the ChatRoom instance with the given room_name exists
+        ''' This method will remove a ChatRoom instance from the list of ChatRooms.
+            NOTE: we want to make sure that the ChatRoom instance with the given room_name exists.
+            NOTE: the use of -1 is to tell us that the ChatRoom instance was not found in the room list.
         '''
-        pass
+        chat_room_to_remove = self.__find_pos(room_name)
+        if chat_room_to_remove is not -1:
+            self.__room_list.pop(chat_room_to_remove)
+            logging.debug(f'ChatRoom {room_name} was removed from the room list.')
+        else:
+            logging.debut(f'ChatRoom {room_name} was not found in the room list.')
 
     def find_room_in_metadata(self, room_name: str) -> dict:
+        ''' This method will return a dictionary of information, relating to the metadata...?
+        '''
         pass
 
     def get_rooms(self):
         ''' This method will return the rooms in the room list.
             NOTE: The room list can be empty
         '''
-        pass
+        return self.__room_list
 
     def get(self, room_name: str) -> ChatRoom:
-        ''' This method will return a ChatRoom instance, given the name of the room, room_name
+        ''' This method will return a ChatRoom instance, given the name of the room, room_name.
             NOTE: It is possible for a ChatRoom instance to not be in the list of rooms.
+            NOTE: do we create a new ChatRoom if the chatroom was not found?
         '''
-        pass
+        for chat_room in self.__room_list:
+            if chat_room.room_name == room_name:
+                return chat_room
 
     def __find_pos(self, room_name: str) -> int:
-        ''' This method is most likely a helper method for getting the position of a ChatRoom instance is in a list
-            NOTE: This maybe just for find_by_member and find_by_owner. 
+        ''' This method is most likely a helper method for getting the position of a ChatRoom instance is in a list.
+            NOTE: This maybe just for find_by_member and find_by_owner.
+            NOTE: returning -1 if the room instance cannot be found.
         '''
-        pass
+        for chat_room_index in range(len(self.__room_list)):
+            if self.__room_list[chat_room_index].room_name is room_name:
+                return chat_room_index
+        return -1
     
     def find_by_member(self, member_alias: str) -> list:
         ''' This method will return a list of ChatRoom instances that has the the current alias within the list of
@@ -227,4 +312,7 @@ class RoomList():
         pass
 
     def __restore(self) -> bool:
+        ''' This method will load the metadata from the collection of the RoomList class and load it to the instance.
+            NOTE: the collection will have to be checked for all ChatRoom aliases
+        '''
         pass
