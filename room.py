@@ -297,6 +297,7 @@ class ChatRoom(deque):
         self.__member_list = room_metadata['member_list']
         self.__create_time = room_metadata['create_time']
         self.__modify_time = room_metadata['modify_time']
+        messages_in_collection = self.__mongo_collection.find({})
 
         
 
