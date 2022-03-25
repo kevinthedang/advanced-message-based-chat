@@ -39,9 +39,11 @@ class UserList():
         self.__mongo_collection = self.__mongo_db.users    
         if self.__restore() is True:
             print('UserList Document is found')
+            self.__dirty = False
         else:
             self.__create_time = datetime.now()
             self.__modify_time = datetime.now()
+            self.__dirty = True
 
     @property
     def user_list(self):
@@ -84,6 +86,7 @@ class UserList():
     def append(self, new_user: ChatUser) -> None:
         ''' This method will add the user to the to the list of users
             NOTE: May want to make sure that the new_user is valid
+            TODO: make sure the user does not already exist in the users (check the user_list_alias or user_list)
         '''
         self.__user_list.append(new_user)
         self.__persist()
@@ -91,24 +94,26 @@ class UserList():
     def __restore(self) -> bool:
         """ First get the document for the queue itself, then get all documents that are not the queue metadata
             NOTE: we should have a list of aliases of the for the members that belong in a certain group chat.
-            TODO: restore the metadata from the mongo collection
+            NOTE: we may not need the user aliases since we just want to restore all of the users
             TODO: restore the list of users to the user_list (list of user classes)
         """
         queue_metadata = self.__mongo_collection.find_one( { 'name': self.__list_name })
         if queue_metadata is None:
             return False
-        self.__list_name = queue_metadata["name"]
+        self.__list_name = queue_metadata["list_name"]
         self.__create_time = queue_metadata["create_time"]
         self.__modify_time = queue_metadata["modify_time"]
-        self.__user_list = queue_metadata['user_names']
+        self.__user_aliases = queue_metadata['user_aliases']
+        # below we want to restore the users to the userList
 
         return True
 
     def __persist(self):
         """ First save a document that describes the user list (name of list, create and modify times)
             Second, for each user in the list create and save a document for that user
-            TODO: we just need to persist a list of user_aliases
-            TODO: change the list to be user_aliases above for this to work
+            TODO: now we want to persist each user in the userlist if they are dirty = True
         """
         if self.__mongo_collection.find_one({ 'name': self.__list_name }) is None:
-            self.__mongo_collection.insert_one({ "name": self.__list_name, "create_time": self.__create_time, "modify_time": self.__modify_time, 'user_names' : self.__user_list})
+            self.__mongo_collection.insert_one({ "name": self.__list_name, "create_time": self.__create_time, "modify_time": self.__modify_time, 'user_names' : self.get_all_users_aliases})
+        # we want to update the mongo_collection if it already exists (check if it is dirty)
+        # then we want to add the users to the collection if they are dirty here
