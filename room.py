@@ -97,6 +97,10 @@ class ChatMessage():
     def message_id(self):
         return self.__mess_id
 
+    @dirty.setter
+    def dirty(self, new_value: bool):
+        self.__dirty = new_value
+
     def to_dict(self):
         mess_props_dict = self.mess_props.to_dict()
         return {'message': self.message, 'mess_props': mess_props_dict}
@@ -297,9 +301,18 @@ class ChatRoom(deque):
         self.__member_list = room_metadata['member_list']
         self.__create_time = room_metadata['create_time']
         self.__modify_time = room_metadata['modify_time']
-        messages_in_collection = self.__mongo_collection.find()
-
-        
+        for current_message in self.__mongo_collection.find({'message': {'$exists': 'true'}}):
+            message_properties = MessageProperties(room_name = current_message['mess_props']['room_name'],
+                                                    to_user = current_message['mess_props']['to_user'],
+                                                    from_user = current_message['mess_props']['from_user'],
+                                                    mess_type = current_message['mess_props']['mess_type'],
+                                                    sequence_num = current_message['mess_props']['sequence_num'],
+                                                    sent_time = current_message['mess_props']['sent_time'],
+                                                    rec_time = current_message['mess_props']['rec_time'])
+            new_message = ChatMessage(message = current_message['message'], mess_id = current_message['_id'], mess_props = message_properties)
+            self.put(message = new_message)
+            logging.debug('Message', current_message['message'], 'was placed onto the deque.')
+        logging.info('All messages restored to the deque.')
 
     def persist(self):
         ''' This method will maintain the data inside of a ChatRoom instance:  
@@ -333,6 +346,7 @@ class ChatRoom(deque):
                     current_message.message_properties.sequence_number = self.__get_next_sequence_num()
                     serialized = current_message.to_dict()
                     self.__mongo_collection.insert_one(serialized)
+                    current_message.dirty = False
 
 
 class RoomList():
