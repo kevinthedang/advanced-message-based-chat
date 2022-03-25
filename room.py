@@ -141,6 +141,11 @@ class ChatRoom(deque):
     def room_user_list(self):
         return self.__user_list
 
+    # property to get the members list for a room
+    @property
+    def member_list(self):
+        return self.__member_list
+
     # property to get the owner_alias of the 
     @property
     def owner_alias(self):
@@ -174,7 +179,6 @@ class ChatRoom(deque):
             logging.info(f'Beginning persistence of message {message}.')
             # self.persist()
 
-
     # overriding parent and setting block to false so we don't wait for messages if there are none
     def get(self) -> ChatMessage:
         ''' This method will take a ChatMessage from the right side of the deque.
@@ -205,15 +209,16 @@ class ChatRoom(deque):
             
     def get_messages(self, user_alias: str, num_messages: int = GET_ALL_MESSAGES, return_objects: bool = True):
         ''' This method will get num_messages from the deque and get their text, objects and a total count of the messages
-            NOTE: Refer to Dans code about message objects and message_texts
             NOTE: total # of messages seems to just be num messages, but if getting all then just return the length of the list
             NOTE: indecies 0 and 1 is to access the values in the tuple for the objects and the number of objects
+            NOTE: If room_type is public, the user may get messages from the chat
         '''
         # return message texts, full message objects, and total # of messages
-        if user_alias not in self.__member_list:
+        if user_alias not in self.__member_list and self.__room_type is ROOM_TYPE_PRIVATE:
             logging.warning(f'User with alias {user_alias} is not a member of {self.__room_name}.')
             return [], [], 0
         if return_objects is True:
+            logging.debug('Returning messages with the message objects.')
             message_objects = self.__get_message_objects(num_messages = num_messages)
             if num_messages == GET_ALL_MESSAGES:
                 return [current_message.message for current_message in list(self)], message_objects[0], message_objects[1]
@@ -223,6 +228,7 @@ class ChatRoom(deque):
                     message_texts.append(super()[current_message_index].message)
                 return message_texts, message_objects[0], message_objects[1]
         else:
+            logging.debug('Returning messages without the message objects.')
             if num_messages == GET_ALL_MESSAGES:
                 return [current_message.message for current_message in list(self)], len(self)
             else:
@@ -234,11 +240,14 @@ class ChatRoom(deque):
     def __get_message_objects(self, num_messages: int = GET_ALL_MESSAGES):
         ''' This is a helper method to get the actual message objects rather than just the message from the object
         '''
+        logging.info(f'Attempting to get message objects in {self.__room_name}.')
         if num_messages == GET_ALL_MESSAGES:
+            logging.debug('Returning all message objects in the deque.')
             return list(self), len(self)
         message_objects = list()
         for current_message_object in range(RIGHT_SIDE_OF_DEQUE, RIGHT_SIDE_OF_DEQUE - num_messages, RANGE_STEP):
             message_objects.append(super()[current_message_object])
+        logging.debug(f'Returning {num_messages} message objects from the deque.')
         return message_objects, len(message_objects)
 
     def send_message(self, message: str, from_alias: str, mess_props: MessageProperties = None) -> bool:
@@ -248,12 +257,21 @@ class ChatRoom(deque):
             NOTE: we also need to create an instance of ChatMessage to put on the queue
             NOTE: should we persist after putting the message on the deque.
         '''
-        if mess_props is not None:
-            new_message = ChatMessage(message = message, mess_props = mess_props)
-            logging.info(f'New ChatMessage created with message {message}')
-            self.put(new_message)
-            return True
-        return False
+        logging.info(f'Attempting to send {message} with the alias {from_alias}.')
+        if from_alias in self.__member_list or self.__room_type == ROOM_TYPE_PUBLIC:
+            logging.debug(f'{from_alias} was granted access to {self.__room_name} to send a message.')
+            if mess_props is not None:
+                new_message = ChatMessage(message = message, mess_props = mess_props)
+                self.put(new_message)
+                logging.debug(f'New ChatMessage created with message {message} and placed in the deque.')
+                #self.persist()
+                return True
+            else:
+                logging.warning(f'No message properties given, cannot generate to_user for message properties.')
+                return False
+        else:
+            logging.debug(f'Alias {from_alias} is not a member of the private chat room {self.__room_name}.')
+            return False
 
     def restore(self) -> bool:
         ''' This method will restore the metadata and the messages that a certain ChatRoom instance needs
@@ -266,6 +284,7 @@ class ChatRoom(deque):
         logging.info('Beginning the restore process.')
         room_metadata = self.__mongo_collection.find_one({ 'room_name' : self.__room_name })
         if room_metadata is None:
+            logging.debug(f'Room name {self.__room_name} was not found in the collections.')
             return False
         
 
@@ -304,6 +323,7 @@ class RoomList():
         """
         self.__room_list_name = room_list_name
         self.__room_list = list()
+        self.__user_alias_list = UserList()
         # Set up mongo - client, db, collection
         self.__mongo_client = MongoClient(host = MONGO_DB_HOST, port = MONGO_DB_PORT, username = MONGO_DB_USER, password = MONGO_DB_PASS, authSource = MONGO_DB_AUTH_SOURCE, authMechanism = MONGO_DB_AUTH_MECHANISM)
         self.__mongo_db = self.__mongo_client.detest
@@ -362,6 +382,7 @@ class RoomList():
             NOTE: It is possible for a ChatRoom instance to not be in the list of rooms.
             NOTE: do we create a new ChatRoom if the chatroom was not found?
         '''
+        logging.info(f'Attemping to get a chat room with name {room_name}.')
         for chat_room in self.__room_list:
             if chat_room.room_name == room_name:
                 return chat_room
@@ -385,14 +406,32 @@ class RoomList():
             TODO: using the member_alias, find all rooms with a members_list that has this alias
             TODO: check if this member_alias is valid
         '''
-        pass
+        logging.info(f'Attempting to find chat rooms for member {member_alias} in {self.__room_list_name}.')
+        if member_alias not in self.__user_alias_list.user_aliases:
+            logging.debug(f'Alias {member_alias} was not found in the list of users!')
+            return []
+        found_member_chat_rooms = list()
+        for current_chat_room in self.__room_list:
+            if member_alias in current_chat_room.member_list:
+                found_member_chat_rooms.append(current_chat_room)
+        logging.info(f'Returning a list of chat rooms with the member alias of {member_alias}.')
+        return found_member_chat_rooms
 
     def find_by_owner(self, owner_alias: str) -> list:
         ''' This method will return a list of ChatRoom instances that have an owner_alias that the user is searching for.
             NOTE: it is possible for all rooms to not have the current owner_alias.
             NOTE: create a new list and append ChatRooms that have the same alias.
         '''
-        pass
+        logging.info(f'Attempting to find chat rooms for owner {owner_alias} in {self.__room_list_name}.')
+        if owner_alias not in self.__user_alias_list.user_aliases:
+            logging.debug(f'Owner alias {owner_alias} was not found in the list of users!')
+            return []
+        found_owner_chat_rooms = list()
+        for current_chat_room in self.__room_list:
+            if owner_alias is current_chat_room.owner_alias:
+                found_owner_chat_rooms.append(current_chat_room)
+        logging.info(f'Returning a list of chat rooms with the owner alias of {owner_alias}.')
+        return found_owner_chat_rooms
 
     def __persist(self):
         ''' This method will save the metadata of the RoomList class and push it to the collections
