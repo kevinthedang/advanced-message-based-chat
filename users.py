@@ -1,8 +1,11 @@
 import queue
+import logging
 from constants import *
 from datetime import date, datetime
 from pymongo import MongoClient
 from constants import *
+
+logging.basicConfig(filename='user.log', level=logging.DEBUG, format = LOG_FORMAT)
         
 class ChatUser():
     """ class for users of the chat system. Users must be registered 
@@ -88,6 +91,9 @@ class UserList():
             NOTE: May want to make sure that the new_user is valid
             TODO: make sure the user does not already exist in the users (check the user_list_alias or user_list)
         '''
+        if new_user in self.__user_aliases:
+            logging.debug(f'Alias {new_user.alias} is an already existing user.')
+            return None
         self.__user_list.append(new_user)
         self.__persist()
 

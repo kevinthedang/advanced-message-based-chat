@@ -12,7 +12,7 @@ from constants import *
 
 MONGO_DB = 'detest'
 #MONGO_DB = 'chatroom'
-logging.basicConfig(filename='chatroom.log', level=logging.DEBUG, filemode='w')
+logging.basicConfig(filename='chatroom.log', level=logging.DEBUG, filemode='w', format = LOG_FORMAT)
 
 class MessageProperties():
     """ Class for holding the properties of a message: type, sent_to, sent_from, rec_time, send_time
@@ -113,6 +113,7 @@ class ChatRoom(deque):
         super(ChatRoom, self).__init__()
         self.__room_name = room_name
         self.__user_list = UserList()
+        self.__dirty = False
         # Set up mongo - client, db, collection, sequence_collection
         self.__mongo_client = MongoClient(host = MONGO_DB_HOST, port = MONGO_DB_PORT, username = MONGO_DB_USER, password = MONGO_DB_PASS, authSource = MONGO_DB_AUTH_SOURCE, authMechanism = MONGO_DB_AUTH_MECHANISM)
         self.__mongo_db = self.__mongo_client.detest
@@ -130,6 +131,7 @@ class ChatRoom(deque):
             else:
                 self.__member_list = list()
                 self.__member_list.append(owner_alias)
+            self.__dirty = True
 
     # property to get the name of a room
     @property
@@ -313,6 +315,7 @@ class RoomList():
     """ This is the RoomList class instance that will handle a list of ChatRooms and obtaining them.
         NOTE: no need to have properties as this will be the main handler of all other class instances.
         TODO: complete this class by writing its functions.
+        TODO: check out the data model to see what names should be
     """
     def __init__(self, room_list_name: str = DEFAULT_ROOM_LIST_NAME) -> None:
         """ Try to restore from mongo and establish variables for the room list
@@ -371,7 +374,16 @@ class RoomList():
 
     def find_room_in_metadata(self, room_name: str) -> dict:
         ''' This method will return a dictionary of information, relating to the metadata...?
+            NOTE: most likely this method will just access the metadata and find the room
+            TODO: implement this when persist and restore are done so an idea can be made
             TODO: connect to MongoDB and attempt to see how the metadata looks
+            NOTE: metadata will consist of:
+                    - room_name
+                    - room_type
+                    - owner_alias
+                    - member_list
+            NOTE: this is mainly for restoring a room_list
+            TODO: return metadata in JSON response
         '''
         pass
 
@@ -440,12 +452,14 @@ class RoomList():
 
     def __persist(self):
         ''' This method will save the metadata of the RoomList class and push it to the collections
-            NOTE: the metadata should contain the list of room_names in the metadata where we would collect the room_names and find the room based on 
+            NOTE: the metadata should contain the list of room_names in the metadata where we would collect the room_names and find the room based on
+            TODO: implement rooms_metadata as well
         '''
         pass
 
     def __restore(self) -> bool:
         ''' This method will load the metadata from the collection of the RoomList class and load it to the instance.
             NOTE: the collection will have to be checked for all ChatRoom aliases
+            TODO: take in the rooms_metadata for one of the methods
         '''
         pass

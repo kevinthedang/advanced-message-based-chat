@@ -18,7 +18,7 @@ app = FastAPI()
 room_list = RoomList()
 users = UserList()
 templates = Jinja2Templates(directory="")
-logging.basicConfig(filename='chat.log', level=logging.INFO)
+logging.basicConfig(filename='chat.log', level=logging.INFO, format = LOG_FORMAT)
 
 @app.get("/")
 async def index():

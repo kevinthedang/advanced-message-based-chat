@@ -23,6 +23,7 @@ RIGHT_SIDE_OF_DEQUE = -1
 RANGE_STEP = -1
 
 # possibly unused constants
+LOG_FORMAT = '%(levelname)s -- %(message)s'
 BYTE_to_STRING = 'utf-8'
 
 ''' THIS SHOULD CONSTANTLY BE UPDATED AS THE CODE IS WRITTEN
