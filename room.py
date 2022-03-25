@@ -346,11 +346,16 @@ class RoomList():
             return ChatRoom(room_name = room_name, member_list = member_list, owner_alias = owner_alias, room_type = room_type, create_new = True)
         return ChatRoom(room_name = room_name, member_list = member_list, owner_alias = owner_alias, room_type = room_type)
 
-    def add(self, new_room: ChatRoom):
+    def add(self, new_room: ChatRoom) -> None:
         ''' This method will add a ChatRoom instance to the list of ChatRooms
-            NOTE: This should not need to check as the create() should already check for the class.
+            NOTE: this method will add the list if the room name does not already exist in the list
         '''
-        pass
+        for current_chat_room in self.__room_list:
+            if new_room.room_name == current_chat_room.room_name:
+                logging.debug(f'New room with name {new_room.room_name} already exists in {self.__room_list_name}.')
+                return None
+        self.__room_list.append(new_room)
+        logging.debug(f'Chat room {new_room.room_name} added to the room list.')
 
     def remove(self, room_name: str):
         ''' This method will remove a ChatRoom instance from the list of ChatRooms.
