@@ -23,8 +23,9 @@ logging.basicConfig(filename='chat.log', level=logging.INFO)
 @app.get("/")
 async def index():
     """ Default page
+        NOTE: when the user accesses the main page, they will get the following JSON response
     """
-    pass
+    return { 'message' : { 'from' : 'kevin', 'to' : 'you :)'} }
 
 @app.get("/page/send", status_code=200)
 async def send_form(request: Request):

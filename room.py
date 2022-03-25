@@ -208,7 +208,6 @@ class ChatRoom(deque):
             NOTE: Refer to Dans code about message objects and message_texts
             NOTE: total # of messages seems to just be num messages, but if getting all then just return the length of the list
             NOTE: indecies 0 and 1 is to access the values in the tuple for the objects and the number of objects
-            TODO: get message_objects if the user wants the objects
         '''
         # return message texts, full message objects, and total # of messages
         if user_alias not in self.__member_list:
@@ -219,19 +218,28 @@ class ChatRoom(deque):
             if num_messages == GET_ALL_MESSAGES:
                 return [current_message.message for current_message in list(self)], message_objects[0], message_objects[1]
             else:
-                '''This case is from right to left to get messages'''
+                message_texts = list()
+                for current_message_index in range(RIGHT_SIDE_OF_DEQUE, RIGHT_SIDE_OF_DEQUE - num_messages, RANGE_STEP):
+                    message_texts.append(super()[current_message_index].message)
+                return message_texts, message_objects[0], message_objects[1]
         else:
             if num_messages == GET_ALL_MESSAGES:
                 return [current_message.message for current_message in list(self)], len(self)
             else:
-                '''This case is from right to left to get messages'''
+                message_texts = list()
+                for current_message_index in range(RIGHT_SIDE_OF_DEQUE, RIGHT_SIDE_OF_DEQUE - num_messages, RANGE_STEP):
+                    message_texts.append(super()[current_message_index].message)
+                return message_texts, len(message_texts)
 
     def __get_message_objects(self, num_messages: int = GET_ALL_MESSAGES):
         ''' This is a helper method to get the actual message objects rather than just the message from the object
-            TODO: write instance where num_messages is not GET_ALL_MESSAGES
         '''
         if num_messages == GET_ALL_MESSAGES:
             return list(self), len(self)
+        message_objects = list()
+        for current_message_object in range(RIGHT_SIDE_OF_DEQUE, RIGHT_SIDE_OF_DEQUE - num_messages, RANGE_STEP):
+            message_objects.append(super()[current_message_object])
+        return message_objects, len(message_objects)
 
     def send_message(self, message: str, from_alias: str, mess_props: MessageProperties = None) -> bool:
         ''' This method will send a message to the ChatRoom instance
@@ -256,8 +264,10 @@ class ChatRoom(deque):
             TODO: load all messages into the chatroom
         '''
         logging.info('Beginning the restore process.')
-        room_metadata = self.__mongo_collection.find_one({})
-        pass
+        room_metadata = self.__mongo_collection.find_one({ 'room_name' : self.__room_name })
+        if room_metadata is None:
+            return False
+        
 
     def persist(self):
         ''' This method will maintain the data inside of a ChatRoom instance:  
