@@ -36,7 +36,6 @@ class UserList():
     def __init__(self, list_name: str = DEFAULT_USER_LIST_NAME) -> None:
         self.__list_name = list_name
         self.__user_list = list()
-        self.__user_aliases = list()
         self.__mongo_client = MongoClient('mongodb://34.94.157.136:27017/')
         self.__mongo_db = self.__mongo_client.detest
         self.__mongo_collection = self.__mongo_db.users    
@@ -48,17 +47,15 @@ class UserList():
             self.__modify_time = datetime.now()
             self.__dirty = True
 
+    # This property is just to the the list of users
     @property
     def user_list(self):
-        ''' This property is just to the the list of users
-        '''
         return self.__user_list
 
+    # This property is to get the list of user_aliases
     @property
     def user_aliases(self):
-        ''' This property is to get the list of user_aliases
-        '''
-        return self.__user_aliases
+        return self.get_all_users_aliases
     
     def register(self, new_alias: str) -> ChatUser:
         """ This method will just return a new ChatUser that will need to be added to the UserList
@@ -66,24 +63,28 @@ class UserList():
             NOTE: we check if the user already exists, if so, don't make another user with that alias
         """
         if self.get(new_alias) is not None:
+            logging.debug(f'Registered new user with name {new_alias}.')
             return ChatUser(alias = new_alias)
         else:
+            logging.debug(f'User {new_alias} already exists.')
             return None
 
     def get(self, target_alias: str) -> ChatUser:
         ''' This method will return the user from the user_list
-            TODO: Learn how to traverse through the list.
+            NOTE: this method will utilize the index to find the user
         '''
         for user_index in range(1, len(self.__user_list)):
             if target_alias == self.__user_list[user_index].alias:
-                return self.__user_list[user_index].alias
+                logging.debug(f'User {target_alias} was found in user list {self.__list_name}.')
+                return self.__user_list[user_index]
+        logging.debug(f'User {target_alias} was not found in user list {self.__list_name}.')
         return None
 
     def get_all_users_aliases(self) -> list:
         ''' This method will just return the list of names as a result.
             NOTE: This list should not be empty as there should at least be an owner to the list
-            TODO: Return a list of user aliases, make sure this works
         '''
+        logging.debug(f'Attempting to get all user aliases in {self.__list_name}.')
         return [user.alias for user in self.__user_list]
 
     def append(self, new_user: ChatUser) -> None:
@@ -95,6 +96,7 @@ class UserList():
             logging.debug(f'Alias {new_user.alias} is an already existing user.')
             return None
         self.__user_list.append(new_user)
+        logging.debug(f'Alias {new_user.alias} added to the list of users.')
         self.__persist()
 
     def __restore(self) -> bool:
