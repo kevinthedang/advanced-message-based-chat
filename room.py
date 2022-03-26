@@ -112,7 +112,6 @@ class ChatRoom(deque):
     """ We reuse the constructor for creating new or grabbing an existing instance. If owner_alias is empty and user_alias is not, 
             this is assuming an existing instance. The opposite (owner_alias set and user_alias empty) means we're creating new
             members is always optional, and room_type is only relevant if we're creating new.
-            NOTE: variables will be instantiated when restore is true.
     """
     def __init__(self, room_name: str, member_list: list = None, owner_alias: str = "", room_type: int = ROOM_TYPE_PRIVATE, create_new: bool = False) -> None:
         super(ChatRoom, self).__init__()
@@ -164,7 +163,17 @@ class ChatRoom(deque):
     # property to get the length of the deque
     @property
     def num_messages(self):
-        return len(list(self))
+        return len(self)
+
+    # property to get the type of the room
+    @property
+    def room_type(self):
+        return self.__room_type
+
+    # property to get if the room is dirty
+    @property
+    def dirty(self):
+        return self.__dirty
 
     def __get_next_sequence_num(self):
         """ This is the method that you need for managing the sequence. Note that there is a separate collection for just this one document
@@ -186,8 +195,6 @@ class ChatRoom(deque):
         if message is not None:
             super().appendleft(message)
             logging.info(f'{message} was appended to the left of the queue.')
-            logging.info(f'Beginning persistence of message {message}.')
-            # self.persist()
 
     # overriding parent and setting block to false so we don't wait for messages if there are none
     def get(self) -> ChatMessage:
@@ -274,7 +281,7 @@ class ChatRoom(deque):
                 new_message = ChatMessage(message = message, mess_props = mess_props)
                 self.put(new_message)
                 logging.debug(f'New ChatMessage created with message {message} and placed in the deque.')
-                #self.persist()
+                self.persist()
                 return True
             else:
                 logging.warning(f'No message properties given, cannot generate to_user for message properties. Failed to send message.')
@@ -287,8 +294,6 @@ class ChatRoom(deque):
         ''' This method will restore the metadata and the messages that a certain ChatRoom instance needs
             NOTE: a ChatRoom will contain it's own collection, if we are creating a new collection, we don't
                     need to restore
-            TODO: then use the metadata to get all messages and put them in the deque
-            TODO: load all messages into the chatroom
         '''
         logging.info('Beginning the restore process.')
         room_metadata = self.__mongo_collection.find_one({ 'room_name' : self.__room_name })
@@ -313,6 +318,7 @@ class ChatRoom(deque):
             self.put(message = new_message)
             logging.debug('Message', current_message['message'], 'was placed onto the deque.')
         logging.info('All messages restored to the deque.')
+        return True
 
     def persist(self):
         ''' This method will maintain the data inside of a ChatRoom instance:  
@@ -321,7 +327,7 @@ class ChatRoom(deque):
             NOTE: we want to iterate through the deque
             TODO: understand how the sequence number is assigned
         '''
-        logging.info('Beginning the persistence process.')
+        logging.info(f'Beginning the persistence process for a chat room: {self.__room_name}.')
         if self.__mongo_collection.find_one({ 'room_name': self.__room_name }) is None:
             self.__room_id = self.__mongo_collection.insert_one({'room_name':self.__room_name,
                                                                 'owner_alias': self.__owner_alias,
@@ -364,7 +370,7 @@ class RoomList():
         """
         self.__room_list_name = room_list_name
         self.__room_list = list()
-        self.__user_alias_list = UserList()
+        self.__user_list = UserList()
         # Set up mongo - client, db, collection
         self.__mongo_client = MongoClient(host = MONGO_DB_HOST, port = MONGO_DB_PORT, username = MONGO_DB_USER, password = MONGO_DB_PASS, authSource = MONGO_DB_AUTH_SOURCE, authMechanism = MONGO_DB_AUTH_MECHANISM)
         self.__mongo_db = self.__mongo_client.detest
@@ -375,6 +381,7 @@ class RoomList():
         if self.__restore() is not True:
             self.__room_list_create = datetime.now()
             self.__room_list_modify = datetime.now()
+            self.__dirty = True
 
     def create(self, room_name: str, owner_alias: str, member_list: list = None, room_type: int = ROOM_TYPE_PRIVATE) -> ChatRoom:
         ''' This method will create a new ChatRoom given that the room_name is not already taken for the collection.
@@ -421,9 +428,18 @@ class RoomList():
                     - owner_alias
                     - member_list
             NOTE: this is mainly for restoring a room_list
-            TODO: return metadata in JSON response
         '''
-        pass
+        if self.get(room_name = room_name) is None:
+            logging.warning(f'No metadata can be found for {room_name}')
+            return None
+        else:
+            room_found = self.get(room_name = room_name)
+            return {
+                'room_name': room_found.room_name,
+                'room_type': room_found.room_type,
+                'owner_alias': room_found.owner_alias,
+                'member_list': room_found.member_list
+            }
 
     def get_rooms(self):
         ''' This method will return the rooms in the room list.
@@ -440,7 +456,10 @@ class RoomList():
         logging.info(f'Attemping to get a chat room with name {room_name}.')
         for chat_room in self.__room_list:
             if chat_room.room_name == room_name:
+                logging.debug(f'{room_name} was found in the chat room list.')
                 return chat_room
+        logging.debug(f'{room_name} was not found in the chat room list.')
+        return None
 
     def __find_pos(self, room_name: str) -> int:
         ''' This method is most likely a helper method for getting the position of a ChatRoom instance is in a list.
@@ -462,7 +481,7 @@ class RoomList():
             TODO: check if this member_alias is valid
         '''
         logging.info(f'Attempting to find chat rooms for member {member_alias} in {self.__room_list_name}.')
-        if member_alias not in self.__user_alias_list.user_aliases:
+        if member_alias not in self.__user_list.user_aliases:
             logging.debug(f'Alias {member_alias} was not found in the list of users!')
             return []
         found_member_chat_rooms = list()
@@ -491,13 +510,46 @@ class RoomList():
     def __persist(self):
         ''' This method will save the metadata of the RoomList class and push it to the collections
             NOTE: the metadata should contain the list of room_names in the metadata where we would collect the room_names and find the room based on
-            TODO: implement rooms_metadata as well
         '''
-        pass
+        logging.info(f'Beginning the persistence process for the room list: {self.__room_list_name}')
+        if self.__mongo_collection.find_one({ 'list_name': self.__room_list_name }) is None:
+            logging.info(f'Persisting new room list {self.__room_list_name}.')
+            self.__room_id = self.__mongo_collection.insert_one({'list_name':self.__room_list_name,                                                            
+                                                                'create_time': self.__room_list_create,
+                                                                'modify_time': self.__room_list_modify,
+                                                                'rooms_metadata': [self.find_room_in_metadata(user_alias) for user_alias in self.__user_list.user_aliases]}) # metadata here
+        else:
+            if self.__dirty == True:
+                logging.debug(f'Updating persistence of {self.__room_list_name} metadata.')
+                self.__mongo_collection.replace_one({'list_name':self.__room_list_name,                                                   
+                                                    'create_time': self.__room_list_create,
+                                                    'modify_time': self.__room_list_modify,
+                                                    'rooms_metadata': [self.find_room_in_metadata(user_alias) for user_alias in self.__user_list.user_aliases]},
+                                                    upsert = True) # metadata here and upsert = True to update the room metadata
+        self.__dirty = False
 
     def __restore(self) -> bool:
         ''' This method will load the metadata from the collection of the RoomList class and load it to the instance.
             NOTE: the collection will have to be checked for all ChatRoom aliases
             TODO: take in the rooms_metadata for one of the methods
+            TODO: restore all of the chat rooms through the metadata in the collections.
         '''
-        pass
+        logging.info('Beginning the restore process.')
+        room_metadata = self.__mongo_collection.find_one({ 'list_name' : self.__room_list_name })
+        if room_metadata is None:
+            logging.debug(f'Room name {self.__room_list_name} was not found in the collections.')
+            return False
+        self.__room_list_name = room_metadata['list_name']
+        self.__room_list_create = room_metadata['create_time']
+        self.__room_list_modify = room_metadata['modify_time']
+        self.__rooms_metadata = room_metadata['rooms_metadata']
+        '''room metadata is a list of dictionaries with metadata for a room'''
+        for current_room_metadata in self.__rooms_metadata:
+            new_chatroom = ChatRoom(room_name = current_room_metadata['room_name'],
+                                    member_list = current_room_metadata['member_list'],
+                                    owner_alias = current_room_metadata['owner_alias'],
+                                    room_type = current_room_metadata['room_type'])
+            self.__room_list.append(new_chatroom)
+            logging.debug('Room', current_room_metadata['room_name'], 'has been added to the room list.')
+        logging.info(f'All rooms in {self.__room_list_name} placed into the room list.')
+        return True
