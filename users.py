@@ -119,9 +119,19 @@ class UserList():
     def __persist(self):
         """ First save a document that describes the user list (name of list, create and modify times)
             Second, for each user in the list create and save a document for that user
-            TODO: now we want to persist each user in the userlist if they are dirty = True
+            TODO: Persist every user in the userlist if they are dirty
         """
         if self.__mongo_collection.find_one({ 'name': self.__list_name }) is None:
-            self.__mongo_collection.insert_one({ "name": self.__list_name, "create_time": self.__create_time, "modify_time": self.__modify_time, 'user_names' : self.get_all_users_aliases})
+            self.__mongo_collection.insert_one({ "name": self.__list_name,
+                                                "create_time": self.__create_time,
+                                                "modify_time": self.__modify_time,
+                                                'user_names' : self.get_all_users_aliases})
+        else:
+            if self.__dirty == True:
+                self.__mongo_collection.replace_one({ "name": self.__list_name,
+                                                    "create_time": self.__create_time, 
+                                                    "modify_time": self.__modify_time, 
+                                                    'user_names' : self.get_all_users_aliases},
+                                                    upsert = True)
         # we want to update the mongo_collection if it already exists (check if it is dirty)
         # then we want to add the users to the collection if they are dirty here

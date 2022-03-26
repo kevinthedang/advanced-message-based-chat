@@ -552,7 +552,7 @@ class RoomList():
         self.__room_list_create = room_metadata['create_time']
         self.__room_list_modify = room_metadata['modify_time']
         self.__rooms_metadata = room_metadata['rooms_metadata']
-        '''room metadata is a list of dictionaries with metadata for a room'''
+        logging.info(f'Attempting to load chat rooms into room list.')
         for current_room_metadata in self.__rooms_metadata:
             new_chatroom = ChatRoom(room_name = current_room_metadata['room_name'],
                                     member_list = current_room_metadata['member_list'],
