@@ -1,3 +1,4 @@
+from curses import erasechar
 from email import message
 import pika
 import json
@@ -391,12 +392,13 @@ class RoomList():
         ''' This method will create a new ChatRoom given that the room_name is not already taken for the collection.
             NOTE: This can just be a checker for the chatroom name existing in the list when restored or if it's in the collection
             NOTE: Maybe check with the collection as it is possible for all names to not be in the list and removed, due to the option for removal
-            TODO: make sure to add a memberlist
+            TODO: it may not be needed to recreated an already existing Chatroom (through restore() method).
         '''
         logging.info(f'Attempting to create a ChatRoom instance with name {room_name}.')
         if self.__mongo_db.get_collection(room_name) is None:
             return ChatRoom(room_name = room_name, member_list = member_list, owner_alias = owner_alias, room_type = room_type, create_new = True)
-        return ChatRoom(room_name = room_name, member_list = member_list, owner_alias = owner_alias, room_type = room_type)
+        logging.debug(f'Instance of {room_name} collection already exists.')
+        return None
 
     def add(self, new_room: ChatRoom) -> None:
         ''' This method will add a ChatRoom instance to the list of ChatRooms
@@ -408,6 +410,7 @@ class RoomList():
                 return None
         self.__room_list.append(new_room)
         logging.debug(f'Chat room {new_room.room_name} added to the room list.')
+        self.__persist()
 
     def remove(self, room_name: str):
         ''' This method will remove a ChatRoom instance from the list of ChatRooms.
@@ -418,14 +421,13 @@ class RoomList():
         if chat_room_to_remove is not CHAT_ROOM_INDEX_NOT_FOUND:
             self.__room_list.pop(chat_room_to_remove)
             logging.debug(f'ChatRoom {room_name} was removed from the room list.')
+            self.__persist()
         else:
-            logging.debut(f'ChatRoom {room_name} was not found in the room list.')
+            logging.debug(f'ChatRoom {room_name} was not found in the room list.')
 
     def find_room_in_metadata(self, room_name: str) -> dict:
         ''' This method will return a dictionary of information, relating to the metadata...?
             NOTE: most likely this method will just access the metadata and find the room
-            TODO: implement this when persist and restore are done so an idea can be made
-            TODO: connect to MongoDB and attempt to see how the metadata looks
             NOTE: metadata will consist of:
                     - room_name
                     - room_type
@@ -450,6 +452,7 @@ class RoomList():
             NOTE: The room list can be empty
             NOTE: this may just be the room names or not
         '''
+        logging.info('Returned the list of rooms.')
         return self.__room_list
 
     def get(self, room_name: str) -> ChatRoom:
@@ -473,7 +476,9 @@ class RoomList():
         '''
         for chat_room_index in range(len(self.__room_list)):
             if self.__room_list[chat_room_index].room_name is room_name:
+                logging.debug(f'{room_name} was found in the room list.')
                 return chat_room_index
+        logging.debug(f'Room name {room_name} was not found in the room list.')
         return CHAT_ROOM_INDEX_NOT_FOUND
     
     def find_by_member(self, member_alias: str) -> list:

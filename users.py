@@ -103,7 +103,7 @@ class UserList():
         """ First get the document for the queue itself, then get all documents that are not the queue metadata
             NOTE: we should have a list of aliases of the for the members that belong in a certain group chat.
             NOTE: we may not need the user aliases since we just want to restore all of the users
-            TODO: restore the list of users to the user_list (list of user classes)
+            TODO: restore the list of users to the user_list (list of user classes) through mongodb collection of users
         """
         queue_metadata = self.__mongo_collection.find_one( { 'name': self.__list_name })
         if queue_metadata is None:
@@ -112,7 +112,7 @@ class UserList():
         self.__create_time = queue_metadata["create_time"]
         self.__modify_time = queue_metadata["modify_time"]
         self.__user_aliases = queue_metadata['user_aliases']
-        # below we want to restore the users to the userList
+        # below we want to restore the users to the userList using the user aliases and checking the mongo collection
 
         return True
 
