@@ -67,6 +67,10 @@ class MessageProperties():
     def sequence_number(self):
         return self.__sequence_num
 
+    @sequence_number.setter
+    def sequence_number(self, new_value: int):
+        self.__sequence_num = new_value
+
     def __str__(self):
         return str(self.to_dict())
 
