@@ -12,6 +12,8 @@ DEFAULT_PRIVATE_ROOM = 'kevin_private'
 DEFAULT_ROOM_LIST_NAME = 'main'
 DEFAULT_USER_LIST_NAME = 'global'
 DEFAULT_OWNER_ALIAS = 'kevin'
+MONGO_DB_TEST = 'detest'
+MONGO_DB = 'cpsc313'
 
 # integer constants
 MONGO_DB_PORT = 27017

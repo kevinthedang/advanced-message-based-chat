@@ -11,8 +11,6 @@ from pymongo import MongoClient, ReturnDocument
 from collections import deque
 from constants import *
 
-MONGO_DB = 'detest'
-#MONGO_DB = 'chatroom'
 logging.basicConfig(filename='chatroom.log', level=logging.DEBUG, filemode='w', format = LOG_FORMAT)
 
 class MessageProperties():
@@ -380,7 +378,7 @@ class RoomList():
         self.__user_list = UserList()
         # Set up mongo - client, db, collection
         self.__mongo_client = MongoClient(host = MONGO_DB_HOST, port = MONGO_DB_PORT, username = MONGO_DB_USER, password = MONGO_DB_PASS, authSource = MONGO_DB_AUTH_SOURCE, authMechanism = MONGO_DB_AUTH_MECHANISM)
-        self.__mongo_db = self.__mongo_client.detest
+        self.__mongo_db = self.__mongo_client.MONGO_DB_TEST
         self.__mongo_collection = self.__mongo_db.get_collection(room_list_name)
         if self.__mongo_collection is None:
             self.__mongo_collection = self.__mongo_db.create_collection(room_list_name)
