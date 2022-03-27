@@ -105,7 +105,7 @@ class UserList():
             NOTE: May want to make sure that the new_user is valid
             TODO: make sure the user does not already exist in the users (check the user_list_alias or user_list)
         '''
-        if new_user in self.__user_aliases:
+        if new_user.alias in self.get_all_users_aliases:
             logging.debug(f'Alias {new_user.alias} is an already existing user.')
             return None
         self.__user_list.append(new_user)
@@ -115,24 +115,33 @@ class UserList():
     def __restore(self) -> bool:
         """ First get the document for the queue itself, then get all documents that are not the queue metadata
             NOTE: we should have a list of aliases of the for the members that belong in a certain group chat.
-            NOTE: we may not need the user aliases since we just want to restore all of the users
-            TODO: restore the list of users to the user_list (list of user classes) through mongodb collection of users
+            NOTE: we may not need the user aliases since we just want to restore all of the users            
         """
+        logging.info(f'Attempting to restore user list metadata from {self.__list_name}.')
         queue_metadata = self.__mongo_collection.find_one( { 'name': self.__list_name })
         if queue_metadata is None:
+            logging.debug(f'{self.__list_name} user list was not found in the mongo collection.')
             return False
         self.__list_name = queue_metadata["list_name"]
         self.__create_time = queue_metadata["create_time"]
         self.__modify_time = queue_metadata["modify_time"]
         self.__user_aliases = queue_metadata['user_aliases']
-        # below we want to restore the users to the userList using the user aliases and checking the mongo collection
-
+        logging.info(f'Attempting to restore users to the {self.__list_name} list.')
+        for current_user_alias in self.__user_aliases:
+            current_user_metadata = self.__mongo_collection.find_one({ 'alias' : current_user_alias })
+            new_chat_user = ChatUser(alias = current_user_metadata['alias'],
+                                    user_id = current_user_metadata['_id'],
+                                    create_time = current_user_metadata['create_time'],
+                                    modify_time = current_user_metadata['modify'])
+            logging.debug(current_user_metadata['alias'], 'was added to the user list.')
+            self.__user_list.append(new_chat_user)
+        logging.info(f'All users in {self.__list_name} added to the user list.')
         return True
 
     def __persist(self):
         """ First save a document that describes the user list (name of list, create and modify times)
             Second, for each user in the list create and save a document for that user
-            TODO: Persist every user in the userlist if they are dirty
+            NOTE: persisting metadata first then persisting all users in user_list        
         """
         logging.info(f'Attemping to persist user list {self.__list_name}.')
         if self.__mongo_collection.find_one({ 'name': self.__list_name }) is None:
