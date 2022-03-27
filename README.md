@@ -1,18 +1,17 @@
-# Advanced Basic Message Chat
-This implementation of a message chat will utilize MongoDB
+# Message Chat Using MongoDB
+This implementation of a message chat will utilize MongoDB and FastAPI
 
 ## Requirements
-* Pika and FastAPI required on the machine
+* FastAPI and pymongo are required for this implementation to work
     * ```pip install -r requirements.txt``` to install required libraries
 
-## To Connect to Server
-* ```python -m uvicorn mess_chat:app --reload```
+## To Connect with FastAPI
+* ```python -m uvicorn room_chat_api:app --reload```
 
 ## Libraries Used
-* [Python Pika](https://pypi.org/project/pika/#:~:text=Pika%20is%20a%20RabbitMQ%20%28AMQP%200-9-1%29%20client%20library,RabbitMQ%E2%80%99s%20extensions.%20Python%202.7%20and%203.4%2B%20are%20supported.)
+* [Python MongoDB](https://pypi.org/project/pymongo/?msclkid=0eccdbf0ae2311ec8817a467b8e63db2)
 
 ## Microservices / API's
-* [RabbitMQ](https://www.rabbitmq.com/#features)
 * [FastAPI](https://fastapi.tiangolo.com/)
 * [MongoDB](https://docs.mongodb.com/manual/?_ga=2.213141972.1346719986.1645739830-1894126807.1645739830)
 
