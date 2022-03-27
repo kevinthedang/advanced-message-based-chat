@@ -339,7 +339,8 @@ class ChatRoom(deque):
                                                                 'room_type': self.__room_type,
                                                                 'member_list': self.__member_list,
                                                                 'create_time': self.__create_time,
-                                                                'modify_time': self.__modify_time}) # metadata here
+                                                                'modify_time': self.__modify_time})
+            logging.debug(f'Chatroom {self.__room_name} metadata has been added to the collection.')
         else:
             if self.__dirty == True:
                 self.__mongo_collection.replace_one({'room_name':self.__room_name,
@@ -348,7 +349,8 @@ class ChatRoom(deque):
                                                     'member_list': self.__member_list,
                                                     'create_time': self.__create_time,
                                                     'modify_time': self.__modify_time},
-                                                    upsert = True) # metadata here and upsert = True to update the room metadata
+                                                    upsert = True)
+                logging.debug(f'Chatroom {self.__room_name} metadata has been updated in the collection.')
         self.__dirty = False
         # put messages in the collection now
         for current_message in list(self):

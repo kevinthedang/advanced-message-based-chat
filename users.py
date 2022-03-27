@@ -10,18 +10,31 @@ logging.basicConfig(filename='user.log', level=logging.DEBUG, format = LOG_FORMA
 class ChatUser():
     """ class for users of the chat system. Users must be registered 
     """
-    def __init__(self, alias: str, create_time: datetime = datetime.now(), modify_time: datetime = datetime.now()) -> None:
+    def __init__(self, alias: str, user_id = None, create_time: datetime = datetime.now(), modify_time: datetime = datetime.now()) -> None:
         self.__alias = alias
+        self.__user_id = user_id
         self.__create_time = create_time
         self.__modify_time = modify_time
+        if self.__user_id is not None:
+            self.__dirty = False
+        else:
+            self.__dirty = True
 
     @property
     def alias(self):
         return self.__alias
+
+    @property
+    def user_id(self):
+        return self.__user_id
     
     @property
     def dirty(self):
         return self.__dirty
+
+    @dirty.setter
+    def dirty(self, new_value: bool):
+        self.__dirty = new_value
 
     def to_dict(self):
         return {
@@ -121,11 +134,13 @@ class UserList():
             Second, for each user in the list create and save a document for that user
             TODO: Persist every user in the userlist if they are dirty
         """
+        logging.info(f'Attemping to persist user list {self.__list_name}.')
         if self.__mongo_collection.find_one({ 'name': self.__list_name }) is None:
             self.__mongo_collection.insert_one({ "name": self.__list_name,
                                                 "create_time": self.__create_time,
                                                 "modify_time": self.__modify_time,
                                                 'user_names' : self.get_all_users_aliases})
+            logging.debug(f'New user list {self.__list_name} added to the collection.')
         else:
             if self.__dirty == True:
                 self.__mongo_collection.replace_one({ "name": self.__list_name,
@@ -133,5 +148,12 @@ class UserList():
                                                     "modify_time": self.__modify_time, 
                                                     'user_names' : self.get_all_users_aliases},
                                                     upsert = True)
-        # we want to update the mongo_collection if it already exists (check if it is dirty)
-        # then we want to add the users to the collection if they are dirty here
+                logging.debug(f'User list {self.__list_name} has been updated in the collection.')
+        self.__dirty = False
+        for current_user in self.__user_list:
+            if current_user.dirty == True:
+                if current_user.user_id is None or self.__mongo_collection.find_one({ 'alias' : current_user.alias }) is None:
+                    serialized = current_user.to_dict()
+                    self.__mongo_collection.insert_one(serialized)
+                    logging.debug(f'User {current_user.alias} has been added to the collection.')
+                    current_user.dirty = False
