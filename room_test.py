@@ -5,16 +5,13 @@ from constants import *
 from room import ChatRoom, MessageProperties, RoomList
 from users import *
 
-PRIVATE_ROOM_NAME = 'kevin'
-PUBLIC_ROOM_NAME = 'general'
-SENDER_NAME = 'testing'
-DEFAULT_PRIVATE_TEST_MESS = 'Test Private Queue'
-DEFAULT_PUBLIC_TEST_MESS = 'Test Public Queue'
-USER_ALIAS = 'testing'
+TEST_ROOM_NAME = 'test_room'
+DEFAULT_TEST_MESSAGE = 'Kevin has sent this message.'
 TEST_OWNER_ALIAS = 'kevin'
 
 class RoomTest(TestCase):
-    """ Docstring
+    """ This test environment will test the functionality of the room file
+        TODO: make user testing file first
     """
     def setUp(self) -> None:
         ''' This setup method will just declare the public and private room to test on.

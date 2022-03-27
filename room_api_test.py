@@ -8,6 +8,10 @@ MESSAGES = ["first"]
 NUM_MESSAGES = 4
 
 class ChatTest(unittest.TestCase):
+    ''' This Test Environment will test the functionality of the API and it's requests
+        TODO: write the other two tests first, and the API
+        TODO: write the API file
+    '''
 
     def test_send(self):
         """ Testing the send api
