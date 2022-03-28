@@ -3,9 +3,6 @@ from unittest import TestCase
 from constants import *
 from users import *
 
-TEST_USER_ALIAS = 'kevin'
-TEST_USER_LIST = 'test_users_kevin'
-
 class UserTest(unittest.TestCase):
     """ This test environment will test the functionality of UserList using a different UserList
         TODO: make tests in decending order

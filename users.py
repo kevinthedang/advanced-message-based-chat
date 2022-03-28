@@ -5,7 +5,7 @@ from datetime import date, datetime
 from pymongo import MongoClient
 from constants import *
 
-logging.basicConfig(filename='user.log', level=logging.DEBUG, format = LOG_FORMAT)
+logging.basicConfig(filename='message_chat.log', level=logging.DEBUG, format = LOG_FORMAT, filemode = 'w')
         
 class ChatUser():
     """ class for users of the chat system. Users must be registered 
@@ -134,7 +134,7 @@ class UserList():
                                     user_id = current_user_metadata['_id'],
                                     create_time = current_user_metadata['create_time'],
                                     modify_time = current_user_metadata['modify_time'])
-            logging.debug(current_user_metadata['alias'], 'was added to the user list.')
+            logging.debug(current_user_metadata['alias'] + ' was added to the user list.')
             self.__user_list.append(new_chat_user)
         logging.info(f'All users in {self.__list_name} added to the user list.')
         return True

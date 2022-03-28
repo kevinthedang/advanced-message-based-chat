@@ -9,7 +9,7 @@ from pymongo import MongoClient, ReturnDocument
 from collections import deque
 from constants import *
 
-logging.basicConfig(filename='chatroom.log', level=logging.DEBUG, filemode='w', format = LOG_FORMAT)
+logging.basicConfig(filename='message_chat.log', level=logging.DEBUG, format = LOG_FORMAT)
 
 class MessageProperties():
     """ Class for holding the properties of a message: type, sent_to, sent_from, rec_time, send_time
@@ -370,12 +370,13 @@ class RoomList():
             TODO: restore the mongoDB collection
             NOTE: restore will handle putting the rooms into the room_list
         """
+        logging.info(f'Creating RoomList Instance: {room_list_name}')
         self.__room_list_name = room_list_name
         self.__room_list = list()
         self.__user_list = UserList()
         # Set up mongo - client, db, collection
         self.__mongo_client = MongoClient(host = MONGO_DB_HOST, port = MONGO_DB_PORT, username = MONGO_DB_USER, password = MONGO_DB_PASS, authSource = MONGO_DB_AUTH_SOURCE, authMechanism = MONGO_DB_AUTH_MECHANISM)
-        self.__mongo_db = self.__mongo_client.MONGO_DB_TEST
+        self.__mongo_db = self.__mongo_client.MONGO_DB
         self.__mongo_collection = self.__mongo_db.get_collection(room_list_name)
         if self.__mongo_collection is None:
             self.__mongo_collection = self.__mongo_db.create_collection(room_list_name)

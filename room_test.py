@@ -5,13 +5,6 @@ from constants import *
 from room import ChatRoom, MessageProperties, RoomList
 from users import *
 
-TEST_LIST_NAME = 'kevin_test_room_list'
-DEFAULT_PUBLIC_TEST_MESSAGE = 'Kevin has sent this message publicly.'
-DEFAULT_PRIVATE_TEST_MESSAGE = 'Kevin has sent this message privately.'
-DEFAULT_FULL_CASE_TEST_MESSAGE = 'This is a full case message by Kevin!'
-DEFAULT_TEST_ROOM = 'kevin_test_room'
-TEST_OWNER_ALIAS = 'kevin'
-
 class RoomTest(unittest.TestCase):
     """ This test environment will test the functionality of the room file
         TODO: make user testing file first

@@ -25,12 +25,28 @@ RIGHT_SIDE_OF_DEQUE = -1
 RANGE_STEP = -1
 PRIVATE_MESSAGE = 200
 PUBLIC_MESSAGE = 100
+EMPTY = 0
 
 # possibly unused constants
 LOG_FORMAT = '%(levelname)s -- %(message)s'
 BYTE_to_STRING = 'utf-8'
 
-''' THIS SHOULD CONSTANTLY BE UPDATED AS THE CODE IS WRITTEN
-'''
+# FastAPI Test Constants
+STARTUP_URL = 'http://localhost:8000/'
+SEND_URL = 'http://localhost:8000/message/'
+CREATE_ROOM_URL = 'http://127.0.0.1:8000/room'
+GET_USERS_URL = 'http://127.0.0.1:8000/users/'
+REGISTER_CLIENT_URL = 'http://127.0.0.1:8000/alias'
+STARTUP_TEST_DICTIONARY = { 'from' : 'kevin', 'to' : 'you :)' }
+TEST_API_ROOM = 'kevin_api_test_room'
+DEFAULT_TEST_API_MESSAGE = 'Kevin has sent this message through FastAPI!'
 
-
+# User/Room Test Constants
+TEST_USER_ALIAS = 'kevin'
+TEST_OWNER_ALIAS = 'kevin'
+TEST_USER_LIST = 'test_users_kevin'
+TEST_LIST_NAME = 'kevin_test_room_list'
+DEFAULT_TEST_ROOM = 'kevin_test_room'
+DEFAULT_PUBLIC_TEST_MESSAGE = 'Kevin has sent this message publicly.'
+DEFAULT_PRIVATE_TEST_MESSAGE = 'Kevin has sent this message privately.'
+DEFAULT_FULL_CASE_TEST_MESSAGE = 'This is a full case message by Kevin!'
