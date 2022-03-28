@@ -191,7 +191,7 @@ class ChatRoom(deque):
         ''' This method will put the current message to the left side of the deque
             TODO: put the message on the left using appendLeft() method
         '''
-        logging.info(f'Caliing the put() method with current message being {message} appending to the left of the deque.')
+        logging.info(f'Calling the put() method with current message being {message} appending to the left of the deque.')
         if message is not None:
             super().appendleft(message)
             logging.info(f'{message} was appended to the left of the queue.')
