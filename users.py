@@ -1,4 +1,3 @@
-from lib2to3.pgen2.token import STAR
 import queue
 import logging
 from constants import *
@@ -54,7 +53,7 @@ class UserList():
         self.__mongo_db = self.__mongo_client.detest
         self.__mongo_collection = self.__mongo_db.users    
         if self.__restore() is True:
-            print('UserList Document is found')
+            logging.info('UserList Document was found in the collection.')
             self.__dirty = False
         else:
             self.__create_time = datetime.now()

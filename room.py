@@ -14,7 +14,6 @@ logging.basicConfig(filename='chatroom.log', level=logging.DEBUG, filemode='w', 
 class MessageProperties():
     """ Class for holding the properties of a message: type, sent_to, sent_from, rec_time, send_time
         NOTE: The sequence number is defaulted to -1
-        TODO: make getters for all of the private variables
     """
     def __init__(self, room_name: str, to_user: str, from_user: str, mess_type: int, sequence_num: int = -1, sent_time: datetime = datetime.now(), rec_time: datetime = datetime.now()) -> None:
         self.__mess_type = mess_type
@@ -103,11 +102,11 @@ class ChatMessage():
         self.__dirty = new_value
 
     def to_dict(self):
-        mess_props_dict = self.mess_props.to_dict()
-        return {'message': self.message, 'mess_props': mess_props_dict}
+        mess_props_dict = self.__mess_props.to_dict()
+        return {'message': self.__message, 'mess_props': mess_props_dict}
 
     def __str__(self):
-        return f'Chat Message: {self.message} - message props: {self.mess_props}'
+        return f'Chat Message: {self.__message} - message props: {self.__mess_props}'
 
 class ChatRoom(deque):
     """ We reuse the constructor for creating new or grabbing an existing instance. If owner_alias is empty and user_alias is not, 
@@ -276,7 +275,7 @@ class ChatRoom(deque):
             NOTE: should we persist after putting the message on the deque.
         '''
         logging.info(f'Attempting to send {message} with the alias {from_alias}.')
-        if from_alias in self.__member_list or self.__room_type == ROOM_TYPE_PUBLIC:
+        if from_alias in self.__member_list or self.__room_type is ROOM_TYPE_PUBLIC:
             logging.debug(f'{from_alias} was granted access to {self.__room_name} to send a message.')
             if mess_props is not None:
                 new_message = ChatMessage(message = message, mess_props = mess_props)
@@ -413,7 +412,6 @@ class RoomList():
     def remove(self, room_name: str):
         ''' This method will remove a ChatRoom instance from the list of ChatRooms.
             NOTE: we want to make sure that the ChatRoom instance with the given room_name exists.
-            NOTE: the use of -1 is to tell us that the ChatRoom instance was not found in the room list.
         '''
         chat_room_to_remove = self.__find_pos(room_name)
         if chat_room_to_remove is not CHAT_ROOM_INDEX_NOT_FOUND:

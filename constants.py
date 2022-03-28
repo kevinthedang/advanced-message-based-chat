@@ -23,6 +23,8 @@ GET_ALL_MESSAGES = -1
 CHAT_ROOM_INDEX_NOT_FOUND = -1
 RIGHT_SIDE_OF_DEQUE = -1
 RANGE_STEP = -1
+PRIVATE_MESSAGE = 200
+PUBLIC_MESSAGE = 100
 
 # possibly unused constants
 LOG_FORMAT = '%(levelname)s -- %(message)s'
