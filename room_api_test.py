@@ -25,9 +25,6 @@ class ChatTest(unittest.TestCase):
     def test_send(self):
         """ Testing the send api
         """
-        requests.post(url = CREATE_ROOM_URL, params = { 'room_name': DEFAULT_TEST_ROOM,
-                                                        'owner_alias': TEST_OWNER_ALIAS,
-                                                    })
         send_message = requests.post(url = SEND_URL, params = { 'room_name': DEFAULT_TEST_ROOM,
                                                                 'message': DEFAULT_TEST_API_MESSAGE,
                                                                 'from_alias': TEST_OWNER_ALIAS,
@@ -38,13 +35,19 @@ class ChatTest(unittest.TestCase):
     def test_get(self):
         """ Testing the get messages api
         """
+        messages_request = requests.get(url = GET_MESSAGES_URL, params = { 'alias': TEST_OWNER_ALIAS,
+                                                                        'room_name': DEFAULT_TEST_ROOM})
+        self.assertEqual(messages_request.status_code, 200)
 
     def test_register(self):
         """ Testing the user and room registration api's
             NOTE: This removal of all users only happens for the instance of this test environment
         """
         register_client = requests.post(url = REGISTER_CLIENT_URL, params = { 'client_alias': TEST_OWNER_ALIAS })
-        self.assertEqual(register_client.status_code, 201)
+        if register_client.status_code is not 201:
+            self.assertEqual(register_client.status_code, 403)
+        else:
+            self.assertEqual(register_client.status_code, 201)
 
     def test_get_users(self):
         """ Testing the get users api

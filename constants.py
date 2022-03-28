@@ -37,6 +37,7 @@ SEND_URL = 'http://localhost:8000/message/'
 CREATE_ROOM_URL = 'http://127.0.0.1:8000/room'
 GET_USERS_URL = 'http://127.0.0.1:8000/users/'
 REGISTER_CLIENT_URL = 'http://127.0.0.1:8000/alias'
+GET_MESSAGES_URL = 'http://127.0.0.1:8000/messages/'
 STARTUP_TEST_DICTIONARY = { 'from' : 'kevin', 'to' : 'you :)' }
 TEST_API_ROOM = 'kevin_api_test_room'
 DEFAULT_TEST_API_MESSAGE = 'Kevin has sent this message through FastAPI!'

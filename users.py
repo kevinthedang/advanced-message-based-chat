@@ -50,8 +50,8 @@ class UserList():
         self.__list_name = list_name
         self.__user_list = list()
         self.__mongo_client = MongoClient('mongodb://34.94.157.136:27017/')
-        self.__mongo_db = self.__mongo_client.detest
-        self.__mongo_collection = self.__mongo_db.users    
+        self.__mongo_db = self.__mongo_client.MONGO_DB
+        self.__mongo_collection = self.__mongo_db.users  
         if self.__restore() is True:
             logging.info('UserList Document was found in the collection.')
             self.__dirty = False
