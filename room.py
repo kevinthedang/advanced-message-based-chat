@@ -208,7 +208,7 @@ class ChatRoom(deque):
             logging.debug(f'There is no message in the deque for room {self.__room_name}')
             return None
         else:
-            logging.debug(f'Message {message} was found on the deque.')
+            logging.debug(f'Message {message_right} was found on the deque.')
             return message_right
 
     def find_message(self, message_text: str) -> ChatMessage:
@@ -469,7 +469,6 @@ class RoomList():
     def __find_pos(self, room_name: str) -> int:
         ''' This method is most likely a helper method for getting the position of a ChatRoom instance is in a list.
             NOTE: This maybe just for find_by_member and find_by_owner.
-            NOTE: returning -1 if the room instance cannot be found.
             NOTE: This is used for removing a chatroom instance in the list
         '''
         for chat_room_index in range(len(self.__room_list)):
