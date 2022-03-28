@@ -24,6 +24,9 @@ class UserTest(unittest.TestCase):
             TODO: make this instance unique
         '''
         new_chat_user = self.__user_list.register(new_alias = TEST_USER_ALIAS)
+        if new_chat_user is None:
+            self.__user_list.remove_all()
+            new_chat_user = self.__user_list.register(new_alias = TEST_USER_ALIAS)
         self.assertTrue(self.__user_list.append(new_user = new_chat_user))
 
     def test_getting(self):
@@ -33,7 +36,3 @@ class UserTest(unittest.TestCase):
         '''
         test_user = self.__user_list.get(target_alias = TEST_USER_ALIAS)
         self.assertEqual(TEST_USER_ALIAS, test_user.alias)
-
-    
-'''if __name__ == "__main__":
-    unittest.main()'''

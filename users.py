@@ -1,3 +1,4 @@
+from lib2to3.pgen2.token import STAR
 import queue
 import logging
 from constants import *
@@ -75,7 +76,7 @@ class UserList():
             This only creates the user, it does not add them to the list of users yet.
             NOTE: we check if the user already exists, if so, don't make another user with that alias
         """
-        if self.get(new_alias) is not None:
+        if self.get(new_alias) is None:
             logging.debug(f'Registered new user with name {new_alias}.')
             return ChatUser(alias = new_alias)
 
@@ -83,7 +84,7 @@ class UserList():
         ''' This method will return the user from the user_list
             NOTE: this method will utilize the index to find the user
         '''
-        for user_index in range(1, len(self.__user_list)):
+        for user_index in range(0, len(self.__user_list)):
             if target_alias == self.__user_list[user_index].alias:
                 logging.debug(f'User {target_alias} was found in user list {self.__list_name}.')
                 return self.__user_list[user_index]
@@ -102,7 +103,10 @@ class UserList():
             NOTE: May want to make sure that the new_user is valid
             TODO: make sure the user does not already exist in the users (check the user_list_alias or user_list)
         '''
-        if new_user.alias in self.get_all_users_aliases:
+        if new_user is None:
+            logging.warning('The user was not registered correctly. (The user may already exist and was restored)')
+            return False
+        if new_user.alias in self.get_all_users_aliases():
             logging.debug(f'Alias {new_user.alias} is an already existing user.')
             return False
         self.__user_list.append(new_user)
@@ -116,21 +120,21 @@ class UserList():
             NOTE: we may not need the user aliases since we just want to restore all of the users            
         """
         logging.info(f'Attempting to restore user list metadata from {self.__list_name}.')
-        queue_metadata = self.__mongo_collection.find_one( { 'name': self.__list_name })
+        queue_metadata = self.__mongo_collection.find_one( { 'list_name': self.__list_name })
         if queue_metadata is None:
             logging.debug(f'{self.__list_name} user list was not found in the mongo collection.')
             return False
-        self.__list_name = queue_metadata["list_name"]
-        self.__create_time = queue_metadata["create_time"]
-        self.__modify_time = queue_metadata["modify_time"]
-        self.__user_aliases = queue_metadata['user_aliases']
+        self.__list_name = queue_metadata['list_name']
+        self.__create_time = queue_metadata['create_time']
+        self.__modify_time = queue_metadata['modify_time']
+        self.__user_aliases = queue_metadata['user_names']
         logging.info(f'Attempting to restore users to the {self.__list_name} list.')
         for current_user_alias in self.__user_aliases:
             current_user_metadata = self.__mongo_collection.find_one({ 'alias' : current_user_alias })
             new_chat_user = ChatUser(alias = current_user_metadata['alias'],
                                     user_id = current_user_metadata['_id'],
                                     create_time = current_user_metadata['create_time'],
-                                    modify_time = current_user_metadata['modify'])
+                                    modify_time = current_user_metadata['modify_time'])
             logging.debug(current_user_metadata['alias'], 'was added to the user list.')
             self.__user_list.append(new_chat_user)
         logging.info(f'All users in {self.__list_name} added to the user list.')
@@ -142,18 +146,19 @@ class UserList():
             NOTE: persisting metadata first then persisting all users in user_list        
         """
         logging.info(f'Attemping to persist user list {self.__list_name}.')
-        if self.__mongo_collection.find_one({ 'name': self.__list_name }) is None:
-            self.__mongo_collection.insert_one({ "name": self.__list_name,
-                                                "create_time": self.__create_time,
-                                                "modify_time": self.__modify_time,
-                                                'user_names' : self.get_all_users_aliases})
+        if self.__mongo_collection.find_one({ 'list_name': self.__list_name }) is None:
+            self.__mongo_collection.insert_one({ 'list_name': self.__list_name,
+                                                'create_time': self.__create_time,
+                                                'modify_time': self.__modify_time,
+                                                'user_names' : self.get_all_users_aliases()})
             logging.debug(f'New user list {self.__list_name} added to the collection.')
         else:
             if self.__dirty == True:
-                self.__mongo_collection.replace_one({ "name": self.__list_name,
-                                                    "create_time": self.__create_time, 
-                                                    "modify_time": self.__modify_time, 
-                                                    'user_names' : self.get_all_users_aliases},
+                self.__mongo_collection.replace_one(filter = { 'list_name': self.__list_name},
+                                                    replacement = { 'list_name': self.__list_name,
+                                                                'create_time': self.__create_time, 
+                                                                'modify_time': self.__modify_time, 
+                                                                'user_names' : self.get_all_users_aliases()},
                                                     upsert = True)
                 logging.debug(f'User list {self.__list_name} has been updated in the collection.')
         self.__dirty = False
@@ -164,3 +169,18 @@ class UserList():
                     self.__mongo_collection.insert_one(serialized)
                     logging.debug(f'User {current_user.alias} has been added to the collection.')
                     current_user.dirty = False
+    
+    def remove_all(self) -> bool:
+        ''' This is a simple helper method that will remove a user from the collection
+            NOTE: This is primarily used for testing
+        '''
+        logging.info(f'Attempting to remove all users from the user collection.')
+        for current_user in self.__user_list:
+            if self.__mongo_collection.find_one({ 'alias' : current_user.alias }) is not None:
+                self.__mongo_collection.delete_one({ 'alias' : current_user.alias })
+                logging.debug(f'{current_user.alias} was removed from the collection of users.')
+            else:
+                logging.debug(f'{current_user.alias} was not found in the user collection. Failed to remove the user.')
+        self.__user_list.clear()
+        self.__persist()
+        return True
