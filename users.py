@@ -78,9 +78,6 @@ class UserList():
         if self.get(new_alias) is not None:
             logging.debug(f'Registered new user with name {new_alias}.')
             return ChatUser(alias = new_alias)
-        else:
-            logging.debug(f'User {new_alias} already exists.')
-            return None
 
     def get(self, target_alias: str) -> ChatUser:
         ''' This method will return the user from the user_list
@@ -100,17 +97,18 @@ class UserList():
         logging.debug(f'Attempting to get all user aliases in {self.__list_name}.')
         return [user.alias for user in self.__user_list]
 
-    def append(self, new_user: ChatUser) -> None:
+    def append(self, new_user: ChatUser) -> bool:
         ''' This method will add the user to the to the list of users
             NOTE: May want to make sure that the new_user is valid
             TODO: make sure the user does not already exist in the users (check the user_list_alias or user_list)
         '''
         if new_user.alias in self.get_all_users_aliases:
             logging.debug(f'Alias {new_user.alias} is an already existing user.')
-            return None
+            return False
         self.__user_list.append(new_user)
         logging.debug(f'Alias {new_user.alias} added to the list of users.')
         self.__persist()
+        return True
 
     def __restore(self) -> bool:
         """ First get the document for the queue itself, then get all documents that are not the queue metadata

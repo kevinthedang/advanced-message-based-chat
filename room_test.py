@@ -1,6 +1,6 @@
+import unittest
 from datetime import datetime
 from unittest import TestCase
-import unittest
 from constants import *
 from room import ChatRoom, MessageProperties, RoomList
 from users import *
@@ -18,7 +18,7 @@ class RoomTest(TestCase):
             TODO: set up the room list class here
         '''
 
-    def test_send(self, private_message: str = DEFAULT_PRIVATE_TEST_MESS, public_message: str = DEFAULT_PUBLIC_TEST_MESS) -> bool:
+    def test_send(self, private_message: str = DEFAULT_TEST_MESSAGE, public_message: str = DEFAULT_TEST_MESSAGE) -> bool:
         """ Testing the send message functionality
             NOTE: These assertions should come back as true from the method calling
                     A true means that the message was sent to Rabbit

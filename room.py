@@ -1,5 +1,3 @@
-from curses import erasechar
-from email import message
 import pika
 import json
 import pika.exceptions
